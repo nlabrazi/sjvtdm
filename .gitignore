@@ -1,1 +1,13 @@
+# Logs
+logs/
+cron.log
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environnement
 .env
+.venv/
