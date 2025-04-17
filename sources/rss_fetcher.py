@@ -8,10 +8,10 @@ RSS_FEEDS = [
     "https://www.reddit.com/r/technology/.rss",
     "https://www.reddit.com/r/gaming/.rss",
     "https://hackernoon.com/feed",
-    "https://www.lesnumeriques.com/rss/news.rss"
+    "https://www.lesnumeriques.com/rss.xml"
 ]
 
-def fetch_rss_articles(limit_per_feed: int = 3) -> List[Dict]:
+def fetch_rss_articles(limit_per_feed: int = 5) -> List[Dict]:
     """
     Fetch latest articles from configured RSS feeds.
 
@@ -24,10 +24,18 @@ def fetch_rss_articles(limit_per_feed: int = 3) -> List[Dict]:
         feed = feedparser.parse(feed_url)
         source_name = feed.feed.get("title", "Unknown Source")
 
+        print(f"📡 Feed: {source_name} ({len(feed.entries)} articles)")
+
         for entry in feed.entries[:limit_per_feed]:
+            title = entry.get("title", "").strip()
+            link = entry.get("link", "").strip()
+
+            if not title or not link:
+                continue  # Skip incomplete articles
+
             article = {
-                "title": entry.get("title", "No title"),
-                "link": entry.get("link", ""),
+                "title": title,
+                "link": link,
                 "source": source_name
             }
             all_articles.append(article)

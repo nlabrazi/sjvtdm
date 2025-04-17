@@ -36,3 +36,10 @@ def send_to_telegram(message: str) -> bool:
     except Exception as e:
         print("❌ Exception while sending message:", e)
         return False
+
+def send_error_alert(error_msg: str) -> bool:
+    """
+    Send an alert message to Telegram in case of error.
+    """
+    alert_message = f"⚠️ *SJVTDM Error Alert*\n```{error_msg}```"
+    return send_to_telegram(alert_message)
