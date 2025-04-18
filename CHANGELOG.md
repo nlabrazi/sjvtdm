@@ -1,6 +1,17 @@
 ## [Unreleased] - 2025-04-18
 
 
+- 🔧 chore: auto commit of modified files (2025-04-18 23:04)
+- 🔧 chore: update changelog
+- ✨ feat: group Telegram messages by source + cleanup pyc files
+- 🔸 ✨ Improve Telegram notifications and logging
+- ✨ feat: Add logging system and production-ready cron integration
+- 🔧 chore: adding missing screenshot on readme
+- 🔧 chore: Initial project structure with README, changelog, and base modules
+
+## [Unreleased] - 2025-04-18
+
+
 - ✨ feat: group Telegram messages by source + cleanup pyc files
 - 🔸 ✨ Improve Telegram notifications and logging
 - ✨ feat: Add logging system and production-ready cron integration
