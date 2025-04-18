@@ -1,7 +1,7 @@
 import json
 import os
 
-SENT_FILE = "sent_articles.json"
+SENT_FILE = "logs/sent_articles.json"
 
 def load_sent_links() -> set:
     """Load previously sent article links."""
