@@ -2,8 +2,9 @@ import os
 import praw
 from dotenv import load_dotenv
 
-# 📥 Charge les variables d'environnement depuis .env
-load_dotenv()
+# 📥 Load .env only if local
+if not os.getenv("REDDIT_CLIENT_ID"):
+    load_dotenv()
 
 reddit = praw.Reddit(
     client_id=os.getenv("REDDIT_CLIENT_ID"),

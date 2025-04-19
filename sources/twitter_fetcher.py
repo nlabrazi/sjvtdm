@@ -2,7 +2,9 @@ import os
 import requests
 from dotenv import load_dotenv
 
-load_dotenv()
+# 📥 Load .env only if local
+if not os.getenv("TWITTER_BEARER_TOKEN"):
+    load_dotenv()
 
 BEARER_TOKEN = os.getenv("TWITTER_BEARER_TOKEN")
 
