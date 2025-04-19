@@ -8,7 +8,7 @@ BEARER_TOKEN = os.getenv("TWITTER_BEARER_TOKEN")
 
 # Twitter API endpoints
 BASE_URL = "https://api.twitter.com/2"
-USERNAMES = ["SaudiNewsFR", "Le360fr"]
+USERNAMES = ["SaudiNewsFR"]
 
 HEADERS = {
     "Authorization": f"Bearer {BEARER_TOKEN}"
