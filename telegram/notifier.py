@@ -3,8 +3,9 @@ import requests
 from dotenv import load_dotenv
 from utils.logger import setup_logger
 
-# Load environment variables
-load_dotenv()
+# 📥 Load .env only if local
+if not os.getenv("TELEGRAM_BOT_TOKEN"):
+    load_dotenv()
 
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
