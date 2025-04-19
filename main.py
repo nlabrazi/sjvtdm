@@ -1,13 +1,17 @@
 import os
+import re
 import time
 from collections import defaultdict
 
 from sources.rss_fetcher import fetch_rss_articles
 from sources.reddit_fetcher import fetch_reddit_posts
-from sources.twitter_fetcher import fetch_twitter_posts
+from sources.twitter_fetcher import fetch_twitter_articles
 from telegram.notifier import send_to_telegram, send_error_alert
 from utils.sent_tracker import load_sent_links, save_sent_links, is_new_article
 from utils.logger import setup_logger
+
+# Load environment variables
+IS_CRON = os.getenv("SJVTDM_CRON") == "1"
 
 # ⏺️ Loggers
 bot_log = setup_logger("bot_logger", "bot.log")
@@ -22,21 +26,24 @@ SOURCE_FORMATS = {
     "HackerNoon": "📗 *HackerNoon: Dev, Crypto & Startups*",
     "Les Numériques": "📸 *Le top de l'actu high-tech*",
     "SaudiNewsFR": "🇸🇦 *Dernières nouvelles de SaudiNewsFR*",
-    "Le360fr": "🌍 *Actu Maroc : Le360fr*",
 }
+
+def escape_markdown(text):
+    return re.sub(r'([_*\[\]()~`>#+=|{}.!-])', r'\\\1', text)
 
 def format_articles(grouped_articles):
     messages = []
     for source, items in grouped_articles.items():
         title = SOURCE_FORMATS.get(source, f"📌 *{source}*")
         header = f"{title} — `{len(items)} article{'s' if len(items) > 1 else ''}`"
-        body = "\n".join(f"→ [{a['title']}]({a['link']})" for a in items)
-        messages.append(f"{header}\n\n{body}\n───────────────")
+        body = "\n".join(f"→ [{escape_markdown(a['title'])}]({a['link']})" for a in items)
+        messages.append((source, items, f"{header}\n\n{body}\n───────────────"))
     return messages
 
 def main():
     bot_log.info("SJVTDM bot started")
-    cron_log.info("🔁 Cron started")
+    if IS_CRON:
+        cron_log.info("🔁 Cron started")
 
     sent_links = load_sent_links()
     all_articles = []
@@ -45,7 +52,7 @@ def main():
     bot_log.info(f"Fetched {len(rss_articles)} article(s) from RSS")
     all_articles.extend(rss_articles)
 
-    twitter_articles = fetch_twitter_posts()
+    twitter_articles = fetch_twitter_articles()
     bot_log.info(f"Fetched {len(twitter_articles)} tweet(s)")
     all_articles.extend(twitter_articles)
 
@@ -55,11 +62,13 @@ def main():
 
     new_articles = [a for a in all_articles if is_new_article(a["link"], sent_links)]
     bot_log.info(f"Total fetched: {len(all_articles)} | New: {len(new_articles)}")
-    cron_log.info(f"📰 {len(new_articles)} new article(s)")
+    if IS_CRON:
+        cron_log.info(f"📰 {len(new_articles)} new article(s)")
 
     if not new_articles:
         bot_log.info("No new articles to send")
-        cron_log.info("✅ No new articles to post")
+        if IS_CRON:
+            cron_log.info("✅ No new articles to post")
     else:
         total_count = len(new_articles)
         send_to_telegram(
@@ -72,28 +81,38 @@ def main():
         for article in new_articles:
             grouped[article["source"]].append(article)
 
-        for message in format_articles(grouped):
+        sent_successfully = []
+
+        for source, items, message in format_articles(grouped):
             try:
                 success = send_to_telegram(message)
                 time.sleep(1.5)
                 if success:
-                    for article in new_articles:
-                        if article["link"] in message:
-                            sent_links.add(article["link"])
-                            bot_log.info(f"Sent: {article['title']}")
+                    for article in items:
+                        sent_links.add(article["link"])
+                        sent_successfully.append(article["title"])
+                        bot_log.info(f"Sent: {article['title']}")
+                    save_sent_links(sent_links)
                 else:
                     raise Exception("send_to_telegram returned False")
             except Exception as e:
-                error_text = f"Failed to send message block."
+                error_text = f"Failed to send message block for source: {source}"
                 bot_log.error(f"{error_text} | Reason: {e}")
                 send_error_alert(error_text)
 
         send_to_telegram("\n✅ *That's all for now — see you in the next update!* 👋")
-        cron_log.info("✅ Digest sent to Telegram")
+        if IS_CRON:
+            cron_log.info("✅ Digest sent to Telegram")
+        if IS_CRON:
+            cron_log.info("🧾 Articles sent:")
+        for title in sent_successfully:
+            if IS_CRON:
+                cron_log.info(f"• {title}")
 
     save_sent_links(sent_links)
     bot_log.info("SJVTDM bot finished")
-    cron_log.info("✅ Cron finished\n")
+    if IS_CRON:
+        cron_log.info("✅ Cron finished\n")
 
 if __name__ == "__main__":
     try:
