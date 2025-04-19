@@ -1,0 +1,26 @@
+services:
+  - type: cron
+    name: sjvtdm-cron
+    schedule: "0 * * * *"  # Toutes les heures
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python main.py"
+    envVars:
+      - key: TWITTER_BEARER_TOKEN
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+
+  - type: cron
+    name: sjvtdm-cleaner
+    schedule: "59 23 * * *"  # Nettoyage quotidien à 23h59
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python utils/clean_bot_data.py"
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
