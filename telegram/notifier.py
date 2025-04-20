@@ -13,8 +13,12 @@ CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 log = setup_logger("bot_logger", "bot.log")
 
-def escape_markdown(text: str) -> str:
-    return re.sub(r'([_*\[\]()~`>#+\-=|{}.!])', r'\\\1', text)
+def escape_markdown(text):
+    """
+    Escape special characters for Telegram Markdown
+    """
+    escape_chars = r"\_*[]()~`>#+-=|{}.!"
+    return re.sub(f"([{re.escape(escape_chars)}])", r"\\\1", text)
 
 def send_to_telegram(message: str) -> bool:
     """
