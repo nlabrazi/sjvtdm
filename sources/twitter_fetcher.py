@@ -53,7 +53,7 @@ def fetch_twitter_articles():
             all_tweets.append({
                 "title": text if len(text) <= 120 else text[:117] + "...",
                 "link": link,
-                "source": f"@{username}"
+                "source": username
             })
 
     return all_tweets
