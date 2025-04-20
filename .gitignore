@@ -1,5 +1,6 @@
 # Logs
-logs/
+logs/bot.log
+logs/cron.log
 
 # Python
 __pycache__/
