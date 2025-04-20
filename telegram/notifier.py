@@ -1,4 +1,5 @@
 import os
+import re
 import requests
 from dotenv import load_dotenv
 from utils.logger import setup_logger
@@ -12,6 +13,9 @@ CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 log = setup_logger("bot_logger", "bot.log")
 
+def escape_markdown(text: str) -> str:
+    return re.sub(r'([_*\[\]()~`>#+\-=|{}.!])', r'\\\1', text)
+
 def send_to_telegram(message: str) -> bool:
     """
     Send a message to the configured Telegram channel.
@@ -24,8 +28,8 @@ def send_to_telegram(message: str) -> bool:
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {
         "chat_id": CHAT_ID,
-        "text": message,
-        "parse_mode": "Markdown"
+        "text": escape_markdown(message),
+        "parse_mode": "MarkdownV2"
     }
 
     try:
