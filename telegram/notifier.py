@@ -1,10 +1,9 @@
 import os
-import re
 import requests
 from dotenv import load_dotenv
+from html import escape
 from utils.logger import setup_logger
 
-# 📥 Load .env only if local
 if not os.getenv("TELEGRAM_BOT_TOKEN"):
     load_dotenv()
 
@@ -13,31 +12,25 @@ CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 log = setup_logger("bot_logger", "bot.log")
 
-def escape_markdown(text):
-    """
-    Escape special characters for Telegram Markdown
-    """
-    escape_chars = r"\_*[]()~`>#+-=|{}.!"
-    return re.sub(f"([{re.escape(escape_chars)}])", r"\\\1", text)
+def escape_html(text: str) -> str:
+    return escape(text)
 
-def send_to_telegram(message: str) -> bool:
-    """
-    Send a message to the configured Telegram channel.
-    Returns True if successful, False otherwise.
-    """
+def send_to_telegram(message: str, url: str) -> bool:
     if not BOT_TOKEN or not CHAT_ID:
         log.error("❌ Missing BOT_TOKEN or CHAT_ID in .env file.")
         return False
 
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    html_message = f"{message}\n<a href=\"{url}\">&#8205;</a>"
+
     payload = {
         "chat_id": CHAT_ID,
-        "text": escape_markdown(message),
-        "parse_mode": "MarkdownV2"
+        "text": html_message,
+        "parse_mode": "HTML",
+        "disable_web_page_preview": False
     }
 
     try:
-        response = requests.post(url, data=payload)
+        response = requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", data=payload)
         result = response.json()
         if response.status_code == 200 and result.get("ok"):
             preview = message.replace("\n", " ")[:100] + "..." if len(message) > 100 else message
@@ -51,8 +44,5 @@ def send_to_telegram(message: str) -> bool:
         return False
 
 def send_error_alert(error_msg: str) -> bool:
-    """
-    Send an alert message to Telegram in case of error.
-    """
-    alert_message = f"⚠️ *SJVTDM Error Alert*\n```{error_msg}```"
-    return send_to_telegram(alert_message)
+    alert = f"<b>SJVTDM Error Alert</b>\n<pre>{escape_html(error_msg)}</pre>"
+    return send_to_telegram(alert, url="https://example.com")

@@ -1,122 +1,100 @@
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning, module="scipy")
+
 import os
-import re
+import json
+import nltk
 import time
-from collections import defaultdict
+import re
+from html import unescape, escape
 
 from sources.rss_fetcher import fetch_rss_articles
 from sources.reddit_fetcher import fetch_reddit_posts
-from sources.twitter_fetcher import fetch_twitter_articles
-from telegram.notifier import send_to_telegram, send_error_alert
-from utils.sent_tracker import load_sent_links, save_sent_links, is_new_article
+from utils.image_extractor import extract_image
+from utils.summarizer import summarize_text
+from telegram.notifier import send_to_telegram
 from utils.logger import setup_logger
 
-# Load environment variables
-IS_CRON = os.getenv("SJVTDM_CRON") == "1"
+nltk.download("punkt", quiet=True)
 
-# ⏺️ Loggers
-bot_log = setup_logger("bot_logger", "bot.log")
-cron_log = setup_logger("cron_logger", "cron.log")
+log = setup_logger("cron_push_logger", "cron_push.log")
 
-# 🎨 Source display formats
-SOURCE_FORMATS = {
-    "Polygon": "🎮 *🧠 Insights from Polygon Gaming News*",
-    "gHacks Technology News": "🛠️ *gHacks: Tech Tips & Software Alerts*",
-    "/r/Technology": "💻 *Reddit Tech Highlights*",
-    "r/gaming": "🎮 *Reddit Gamers Speak!*",
-    "HackerNoon": "📗 *HackerNoon: Dev, Crypto & Startups*",
-    "Les Numériques": "📸 *Le top de l'actu high-tech*",
-    "SaudiNewsFR": "🇸🇦 *Dernières nouvelles de SaudiNewsFR*",
-}
+MAX_MESSAGES_PER_MINUTE = 20
+MAX_MESSAGES_PER_SOURCE = 10
+GLOBAL_COUNT = 0
 
-def escape_markdown(text):
-    return re.sub(r'([_*\[\]()~`>#+=|{}.!-])', r'\\\1', text)
+TARGET_SOURCES = [
+    "Polygon",
+    "gHacks Technology News",
+    "HackerNoon",
+    "/r/technology",
+    "/r/gaming",
+    "Les Numériques - Toute l'actualité, les tests et dossiers, les bons plans"
+]
 
-def format_articles(grouped_articles):
-    messages = []
-    for source, items in grouped_articles.items():
-        title = SOURCE_FORMATS.get(source, f"📌 *{source}*")
-        header = f"{title} — `{len(items)} article{'s' if len(items) > 1 else ''}`"
-        body = "\n".join(f"→ [{escape_markdown(a['title'])}]({a['link']})" for a in items)
-        messages.append((source, items, f"{header}\n\n{body}\n───────────────"))
-    return messages
+def clean_html(text):
+    return unescape(re.sub(r"<[^>]+>", "", text))
 
-def main():
-    bot_log.info("SJVTDM bot started")
-    if IS_CRON:
-        cron_log.info("🔁 Cron started")
+sent_path = "logs/sent_articles.json"
+if os.path.exists(sent_path):
+    with open(sent_path, "r", encoding="utf-8") as f:
+        try:
+            sent_links = set(json.load(f).get("links", []))
+        except Exception:
+            sent_links = set()
+else:
+    sent_links = set()
 
-    sent_links = load_sent_links()
-    all_articles = []
+rss_articles = fetch_rss_articles()
+reddit_posts = fetch_reddit_posts()
+articles = rss_articles + reddit_posts
 
-    rss_articles = fetch_rss_articles()
-    bot_log.info(f"Fetched {len(rss_articles)} article(s) from RSS")
-    all_articles.extend(rss_articles)
+source_map = {}
+for article in articles:
+    source = article.get("source", "❓ Unknown")
+    source_map.setdefault(source, []).append(article)
 
-    twitter_articles = fetch_twitter_articles()
-    bot_log.info(f"Fetched {len(twitter_articles)} tweet(s)")
-    all_articles.extend(twitter_articles)
+new_links = set()
+sent_count = 0
 
-    reddit_articles = fetch_reddit_posts()
-    bot_log.info(f"Fetched {len(reddit_articles)} reddit post(s)")
-    all_articles.extend(reddit_articles)
+for source, group in source_map.items():
+    if source not in TARGET_SOURCES:
+        continue
 
-    new_articles = [a for a in all_articles if is_new_article(a["link"], sent_links)]
-    bot_log.info(f"Total fetched: {len(all_articles)} | New: {len(new_articles)}")
-    if IS_CRON:
-        cron_log.info(f"📰 {len(new_articles)} new article(s)")
+    source_count = 0
 
-    if not new_articles:
-        bot_log.info("No new articles to send")
-        if IS_CRON:
-            cron_log.info("✅ No new articles to post")
-    else:
-        total_count = len(new_articles)
-        send_to_telegram(
-            f"👋 *Hey there! Your SJVTDM digest is ready!*\n\n"
-            f"📰 *{total_count} new article{'s' if total_count > 1 else ''} just landed — enjoy the read!*\n"
-        )
-        time.sleep(1.5)
+    for article in group:
+        if article["link"] in sent_links:
+            continue
+        if source_count >= MAX_MESSAGES_PER_SOURCE:
+            log.info(f"⏭️ Limite atteinte pour: {source}")
+            break
 
-        grouped = defaultdict(list)
-        for article in new_articles:
-            grouped[article["source"]].append(article)
+        title = escape(article["title"])
+        description = clean_html(article.get("description", ""))
+        summary_raw = summarize_text(f"{title}. {description}", max_sentences=2)
+        summary = escape(summary_raw)
 
-        sent_successfully = []
+        message = f"🚨 <b>{title}</b>\n\n{summary}"
+        success = send_to_telegram(message, article["link"])
 
-        for source, items, message in format_articles(grouped):
-            try:
-                success = send_to_telegram(message)
-                time.sleep(1.5)
-                if success:
-                    for article in items:
-                        sent_links.add(article["link"])
-                        sent_successfully.append(article["title"])
-                        bot_log.info(f"Sent: {article['title']}")
-                    save_sent_links(sent_links)
-                else:
-                    raise Exception("send_to_telegram returned False")
-            except Exception as e:
-                error_text = f"Failed to send message block for source: {source}"
-                bot_log.error(f"{error_text} | Reason: {e}")
-                send_error_alert(error_text)
+        if success:
+            sent_count += 1
+            new_links.add(article["link"])
+            source_count += 1
+            GLOBAL_COUNT += 1
 
-        send_to_telegram("\n✅ *That's all for now — see you in the next update!* 👋")
-        if IS_CRON:
-            cron_log.info("✅ Digest sent to Telegram")
-        if IS_CRON:
-            cron_log.info("🧾 Articles sent:")
-        for title in sent_successfully:
-            if IS_CRON:
-                cron_log.info(f"• {title}")
+        time.sleep(1)
 
-    save_sent_links(sent_links)
-    bot_log.info("SJVTDM bot finished")
-    if IS_CRON:
-        cron_log.info("✅ Cron finished\n")
+        if GLOBAL_COUNT >= MAX_MESSAGES_PER_MINUTE:
+            log.info("⏳ Limite globale atteinte, pause 60s.")
+            time.sleep(60)
+            GLOBAL_COUNT = 0
 
-if __name__ == "__main__":
-    try:
-        main()
-    except Exception as e:
-        bot_log.exception("CRITICAL ERROR in bot")
-        send_error_alert(f"Unhandled exception: {e}")
+    log.info(f"⏳ Sleep après: {source}")
+    time.sleep(10)
+
+with open(sent_path, "w", encoding="utf-8") as f:
+    json.dump({"links": list(sent_links.union(new_links))}, f, indent=2, ensure_ascii=False)
+
+log.info(f"✅ Sent {sent_count} new articles to Telegram")

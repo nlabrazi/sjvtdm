@@ -18,9 +18,14 @@ def fetch_reddit_posts(limit=5):
     posts = []
     for sub in SUBREDDITS:
         for submission in reddit.subreddit(sub).new(limit=limit):
+            image_url = None
+            if hasattr(submission, "preview") and "images" in submission.preview:
+                image_url = submission.preview["images"][0]["source"]["url"]
+
             posts.append({
                 "source": f"/r/{sub}",
                 "title": submission.title,
-                "link": submission.url
+                "link": f"https://www.reddit.com{submission.permalink}",
+                "image": image_url
             })
     return posts
