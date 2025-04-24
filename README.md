@@ -1,23 +1,6 @@
-<!-- Improved compatibility of back to top link: See: https://github.com/othneildrew/Best-README-Template/pull/73 -->
 <a name="readme-top"></a>
-<!--
-*** Thanks for checking out the Best-README-Template. If you have a suggestion
-*** that would make this better, please fork the repo and create a pull request
-*** or simply open an issue with the tag "enhancement".
-*** Don't forget to give the project a star!
-*** Thanks again! Now go create something AMAZING! :D
--->
-
-
 
 <!-- PROJECT SHIELDS -->
-<!--
-*** I'm using markdown "reference style" links for readability.
-*** Reference links are enclosed in brackets [ ] instead of parentheses ( ).
-*** See the bottom of this document for the declaration of the reference variables
-*** for contributors-url, forks-url, etc. This is an optional, concise syntax you may use.
-*** https://www.markdownguide.org/basic-syntax/#reference-style-links
--->
 [![Contributors][contributors-shield]][contributors-url]
 [![Forks][forks-shield]][forks-url]
 [![Stargazers][stars-shield]][stars-url]
@@ -35,54 +18,53 @@
       <a href="#about-the-project">About The Project</a>
       <ul>
         <li><a href="#description">Description</a></li>
+        <li><a href="#features">Planned Features</a></li>
         <li><a href="#built-with">Built With</a></li>
       </ul>
     </li>
     <li>
       <a href="#getting-started">Getting Started</a>
       <ul>
-        <li><a href="#prerequisites">Prerequisites</a></li>
         <li><a href="#installation">Installation</a></li>
       </ul>
     </li>
-    <li><a href="#usage">Usage</a></li>
-    <li><a href="#roadmap">Roadmap</a></li>
-    <li><a href="#contributing">Contributing</a></li>
-    <li><a href="#license">License</a></li>
-    <li><a href="#contact">Contact</a></li>
-    <li><a href="#acknowledgments">Acknowledgments</a></li>
+    <li><a href="#contributing">Contributing</a>
+      <ul>
+        <li><a href="#license">License</a></li>
+        <li><a href="#contact">Contact</a></li>
+      </ul>
+    </li>
   </ol>
 </details>
 
 
 
+<!-- ABOUT THE PROJECT -->
+# 🧠 About The Project
+
+<a href="https://nabil-labrazi.fr" target="_blank">
+  <img src="[product-screenshot]" alt="Screenshot" width="400" style="display:block; margin:auto;" />
+</a>
+
+
+
 <!-- DESCRIPTION -->
-## Description
+### ℹ️ Description
 
 A Telegram bot that automatically centralizes relevant news and updates from various sources (Twitter, RSS feeds, etc.) into a personal or private Telegram channel.
 
-## 🚀 Planned Features
+### 🚀 Planned Features
 
 - 🔁 Fetch news via RSS feeds
-- 🐦 Monitor Twitter accounts or hashtags
-- 📤 Automatically post to a Telegram channel
+- 📥 Aggregate Reddit content
 - 🧠 Deduplication to prevent reposts
-- ⏱️ Scheduled tasks (via cron or internal loop)
-
-## 📁 Project Structure
-
-
-
-<!-- ABOUT THE PROJECT -->
-## About The Project
-
-[![Product Name Screen Shot][product-screenshot]](https://nabil-labrazi.com)
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+- 📤 Automatically post grouped content to Telegram
+- ⏱️ Scheduled jobs via cron (push at 8h, 16h, 00h and clean at 2h)
+- 📜 Detailed logs with separate files for push, cron, and Telegram bot
 
 
 
-### Built With
+### 🏗️ Built With
 
 * [![Python][Python.io]][Python-url]
 
@@ -91,74 +73,60 @@ A Telegram bot that automatically centralizes relevant news and updates from var
 
 
 <!-- GETTING STARTED -->
-## Getting Started
+# ✅ Getting Started
 
-This is an example of how you may give instructions on setting up your project locally.
-To get a local copy up and running follow these simple example steps.
+This project runs on 🐍 Python with scheduled jobs for pushing content to Telegram.
+Below are installation instructions for a Python-based project.
 
-### Prerequisites
+### 💻 Installation
 
-This is an example of how to list things you need to use the software and how to install them.
-* npm
-  ```sh
-  npm install npm@latest -g
-  ```
-
-### Installation
-
-1. Get a free API Key at [https://example.com](https://example.com)
-2. Clone the repo
-   ```sh
-   git clone https://github.com/nlabrazi/sjvtdm.git
-   ```
-3. Install NPM packages
-   ```sh
-   npm install
-   ```
-4. Enter your API in `config.js`
-   ```js
-   const API_KEY = 'ENTER YOUR API';
-   ```
+```bash
+python -m venv venv
+source venv/bin/activate  # or .\venv\Scripts\activate (Windows)
+pip install -r requirements.txt
+```
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
 
 <!-- CONTRIBUTING -->
-## Contributing
+# 🙌 Contributing
 
-Contributions are what make the open source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
+We welcome all contributions! 🛠️ Whether it's fixing a typo, improving documentation, or suggesting a new feature — **every little bit helps**.
 
-If you have a suggestion that would make this better, please fork the repo and create a pull request. You can also simply open an issue with the tag "enhancement".
-Don't forget to give the project a star! Thanks again!
+To contribute:
+1. 🍴 Fork the repo
+2. 🔧 Create a feature branch (`git checkout -b feat/my-feature`)
+3. 💬 Commit your changes (`git commit -m "feat: add my feature"`)
+4. 🚀 Push to your fork (`git push origin feat/my-feature`)
+5. 📨 Open a pull request
 
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+Thanks a lot for your support! 💙
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
 
 <!-- LICENSE -->
-## License
+### 📄 License
 
-Distributed under the MIT License. See `LICENSE.txt` for more information.
+This project is licensed under the **MIT License** 📜.
+You're free to use, modify, and distribute it — just remember to give credit 🤝.
+
+See the full license in [`LICENSE.txt`](LICENSE.txt) for details.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
 
 <!-- CONTACT -->
-## Contact
+### 📬 Contact
 
-Your Name - [@Nabil71405502](https://twitter.com/Nabil71405502) - na.labrazi@gmail.com
-
-Project Link: [https://github.com/nlabrazi/sjvtdm](https://github.com/nlabrazi/sjvtdm)
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+👤 **Nabil Labrazi**
+🐦 [@Nabil](https://twitter.com/Nabil71405502)
+📧 na.labrazi@gmail.com
+🔗 [Portfolio](https://nabil-labrazi.fr[product-screenshot]a href="#readme-top">back to top</a>)</p>
 
 
 
