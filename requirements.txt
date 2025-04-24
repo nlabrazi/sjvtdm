@@ -2,3 +2,5 @@ feedparser
 python-dotenv
 requests
 praw
+-sumy
+nltk

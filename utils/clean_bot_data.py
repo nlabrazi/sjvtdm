@@ -6,7 +6,7 @@ from datetime import datetime
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LOG_DIR = os.path.join(BASE_DIR, "logs")
 SENT_FILE = os.path.join(LOG_DIR, "sent_articles.json")
-RETENTION_DAYS = 7
+RETENTION_DAYS = 3
 
 def clean_old_logs(retention_days=RETENTION_DAYS):
     now = time.time()
