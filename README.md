@@ -43,7 +43,7 @@
 # 🧠 About The Project
 
 <a href="https://nabil-labrazi.fr" target="_blank">
-  <img src="[product-screenshot]" alt="Screenshot" width="400" style="display:block; margin:auto;" />
+  <img src="public/assets/images/screenshot.png" alt="Screenshot" style="width:100%; max-height:350px; object-fit:cover;" />
 </a>
 
 
@@ -114,7 +114,7 @@ Thanks a lot for your support! 💙
 This project is licensed under the **MIT License** 📜.
 You're free to use, modify, and distribute it — just remember to give credit 🤝.
 
-See the full license in [`LICENSE.txt`](LICENSE.txt) for details.
+See the full license in [`LICENSE.txt`](https://en.wikipedia.org/wiki/MIT_License) for details.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -123,15 +123,17 @@ See the full license in [`LICENSE.txt`](LICENSE.txt) for details.
 <!-- CONTACT -->
 ### 📬 Contact
 
-👤 **Nabil Labrazi**
-🐦 [@Nabil](https://twitter.com/Nabil71405502)
-📧 na.labrazi@gmail.com
-🔗 [Portfolio](https://nabil-labrazi.fr[product-screenshot]a href="#readme-top">back to top</a>)</p>
+- 👤 [Linkedin][linkedin-url]
+- 🐦 [@Nabil](https://twitter.com/Nabil71405502)
+- 📧 na.labrazi@gmail.com
+- 🔗 [Portfolio](https://nabil-labrazi.fr)
+- 📁 [Project Repository](https://github.com/nlabrazi/sjvtdm)
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
 
 <!-- MARKDOWN LINKS & IMAGES -->
-<!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
 [contributors-shield]: https://img.shields.io/github/contributors/nlabrazi/sjvtdm.svg?style=for-the-badge
 [contributors-url]: https://github.com/nlabrazi/sjvtdm/graphs/contributors
 [forks-shield]: https://img.shields.io/github/forks/nlabrazi/sjvtdm.svg?style=for-the-badge
