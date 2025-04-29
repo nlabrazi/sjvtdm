@@ -11,7 +11,7 @@ from html import unescape, escape
 from sources.rss_fetcher import fetch_rss_articles
 from sources.reddit_fetcher import fetch_reddit_posts
 from utils.image_extractor import extract_image
-from utils.summarizer import summarize_text
+from utils.summarizer import generate_summary
 from telegram.notifier import send_to_telegram
 from utils.logger import setup_logger
 
@@ -70,10 +70,27 @@ for source, group in source_map.items():
             log.info(f"⏭️ Limite atteinte pour: {source}")
             break
 
-        title = escape(article["title"])
-        description = clean_html(article.get("description", ""))
-        summary_raw = summarize_text(f"{title}. {description}", max_sentences=2)
-        summary = escape(summary_raw)
+        # title = escape(article["title"])
+        # description = clean_html(article.get("description", ""))
+        # summary_raw = summarize_text(f"{title}. {description}", max_sentences=2)
+        # summary = escape(summary_raw)
+
+        raw_title = article["title"]
+        raw_description = article.get("description", "")
+
+        # Nettoyage : enlever HTML ET décoder les entités
+        title = clean_html(raw_title)
+        description = clean_html(raw_description)
+
+        # Résumer proprement sur du texte nettoyé
+        summary_raw = generate_summary(title, description, max_sentences=2)
+
+        # Optionnel : escape pour protéger le HTML de Telegram, mais léger
+        def safe_escape(text):
+            return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+        summary = safe_escape(summary_raw)
+        title = safe_escape(title)
 
         message = f"🚨 <b>{title}</b>\n\n{summary}"
         success = send_to_telegram(message, article["link"])

@@ -2,5 +2,8 @@ feedparser
 python-dotenv
 requests
 praw
--sumy
+sumy
 nltk
+beautifulsoup4
+numpy
+scipy
