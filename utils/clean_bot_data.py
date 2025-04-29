@@ -3,7 +3,7 @@ import time
 from datetime import datetime
 
 # Configuration
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOG_DIR = os.path.join(BASE_DIR, "logs")
 SENT_FILE = os.path.join(LOG_DIR, "sent_articles.json")
 RETENTION_DAYS = 3
