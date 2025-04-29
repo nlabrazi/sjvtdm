@@ -1,3 +1,26 @@
+## [Unreleased] - 2025-04-29
+
+### ✨ Feat
+- enhance summary, clear filters & logs
+- stable Telegram integration with batching, HTML formatting, and rate limit handling
+- add switch between local & prod
+- group Telegram messages by source + cleanup pyc files
+- Add logging system and production-ready cron integration
+
+### 🐛 Fix
+- escape markdown for telegram & source for twitter
+- markdown issue on telegram
+- reset JSON to send articles
+- add sent_articles.json which was ignored
+- adding missing praw for GithubActions into requirements.txt
+
+### 🔧 Chore
+- adding  setup for render
+
+### 🔖 Others
+- debug: add debug file, will rework application regarding issue with GithubAction
+- ✨ Improve Telegram notifications and logging
+
 # 🗒️ CHANGELOG
 
 ## [0.3.0] - 2025-04-24

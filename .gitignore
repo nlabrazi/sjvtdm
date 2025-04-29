@@ -1,12 +1,31 @@
-# Logs
+# Logs and outputs
+*.log
 logs/
+*.json
 
 # Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
+*.sqlite3
 
 # Environnement
 .env
 .venv/
+env/
+venv/
+ENV/
+
+
+# Railway specific
+railway.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Others
+.idea/
+.vscode/
+*.bak
