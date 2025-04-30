@@ -17,21 +17,21 @@
     <li>
       <a href="#about-the-project">About The Project</a>
       <ul>
-        <li><a href="#description">Description</a></li>
-        <li><a href="#features">Planned Features</a></li>
-        <li><a href="#built-with">Built With</a></li>
+        <li><a href="#️-description">Description</a></li>
+        <li><a href="#-planned-features">Planned Features</a></li>
+        <li><a href="#️-built-with">Built With</a></li>
       </ul>
     </li>
     <li>
-      <a href="#getting-started">Getting Started</a>
+      <a href="#-getting-started">Getting Started</a>
       <ul>
-        <li><a href="#installation">Installation</a></li>
+        <li><a href="#-installation">Installation</a></li>
       </ul>
     </li>
-    <li><a href="#contributing">Contributing</a>
+    <li><a href="#-contributing">Contributing</a>
       <ul>
-        <li><a href="#license">License</a></li>
-        <li><a href="#contact">Contact</a></li>
+        <li><a href="#-license">License</a></li>
+        <li><a href="#-contact">Contact</a></li>
       </ul>
     </li>
   </ol>
@@ -42,9 +42,11 @@
 <!-- ABOUT THE PROJECT -->
 # 🧠 About The Project
 
-<a href="https://nabil-labrazi.fr" target="_blank">
-  <img src="public/assets/images/screenshot.png" alt="Screenshot" style="width:100%; max-height:350px; object-fit:cover;" />
-</a>
+<p align="center">
+  <a href="https://nabil-labrazi.fr">
+    <img src="public/assets/images/screenshot.png" alt="Screenshot" width="100%" height="400" />
+  </a>
+</p>
 
 
 
