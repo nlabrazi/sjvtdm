@@ -1,7 +1,6 @@
 # Logs and outputs
 *.log
 logs/
-*.json
 
 # Python
 __pycache__/
@@ -16,10 +15,6 @@ __pycache__/
 env/
 venv/
 ENV/
-
-
-# Railway specific
-railway.json
 
 # OS
 .DS_Store

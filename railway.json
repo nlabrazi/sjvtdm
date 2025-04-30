@@ -1,0 +1,26 @@
+{
+  "services": [
+    {
+      "name": "sjvtdm-bot",
+      "startCommand": "./start.sh",
+      "envVars": {
+        "RUN_MODE": "bot"
+      },
+      "schedules": [
+        { "cron": "0 6 * * *", "command": "./start.sh", "name": "SendMorning" },
+        { "cron": "0 12 * * *", "command": "./start.sh", "name": "SendAfternoon" },
+        { "cron": "0 18 * * *", "command": "./start.sh", "name": "SendEvening" }
+      ]
+    },
+    {
+      "name": "sjvtdm-clean",
+      "startCommand": "./start.sh",
+      "envVars": {
+        "RUN_MODE": "clean"
+      },
+      "schedules": [
+        { "cron": "0 0 * * *", "command": "./start.sh", "name": "NightlyClean" }
+      ]
+    }
+  ]
+}
