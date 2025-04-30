@@ -17,21 +17,21 @@
     <li>
       <a href="#about-the-project">About The Project</a>
       <ul>
-        <li><a href="#description">Description</a></li>
-        <li><a href="#features">Planned Features</a></li>
-        <li><a href="#built-with">Built With</a></li>
+        <li><a href="#️-description">Description</a></li>
+        <li><a href="#-planned-features">Planned Features</a></li>
+        <li><a href="#️-built-with">Built With</a></li>
       </ul>
     </li>
     <li>
-      <a href="#getting-started">Getting Started</a>
+      <a href="#-getting-started">Getting Started</a>
       <ul>
-        <li><a href="#installation">Installation</a></li>
+        <li><a href="#-installation">Installation</a></li>
       </ul>
     </li>
-    <li><a href="#contributing">Contributing</a>
+    <li><a href="#-contributing">Contributing</a>
       <ul>
-        <li><a href="#license">License</a></li>
-        <li><a href="#contact">Contact</a></li>
+        <li><a href="#-license">License</a></li>
+        <li><a href="#-contact">Contact</a></li>
       </ul>
     </li>
   </ol>
@@ -42,9 +42,11 @@
 <!-- ABOUT THE PROJECT -->
 # 🧠 About The Project
 
-<a href="https://nabil-labrazi.fr" target="_blank">
-  <img src="public/assets/images/screenshot.png" alt="Screenshot" style="width:100%; max-height:350px; object-fit:cover;" />
-</a>
+<p align="center">
+  <a href="https://nabil-labrazi.fr">
+    <img src="public/assets/images/screenshot.png" alt="Screenshot" width="100%" height="400" />
+  </a>
+</p>
 
 
 
@@ -52,6 +54,13 @@
 ### ℹ️ Description
 
 A Telegram bot that automatically centralizes relevant news and updates from various sources (Twitter, RSS feeds, etc.) into a personal or private Telegram channel.
+
+- 📰 Collects fresh articles from sources like Polygon, Reddit, and gHacks (`sources/*.py`)
+- ✂️ Generates concise, 2-sentence summaries with smart anti-duplicate logic (`summarizer.py`)
+- 📤 Sends structured, enriched previews to Telegram 3 times a day (`main.py`)
+- 🧹 Cleans up outdated entries to keep your feed sharp and relevant (`clean_bot_data.py`)
+
+---
 
 ### 🚀 Planned Features
 
@@ -62,11 +71,14 @@ A Telegram bot that automatically centralizes relevant news and updates from var
 - ⏱️ Scheduled jobs via cron (push at 8h, 16h, 00h and clean at 2h)
 - 📜 Detailed logs with separate files for push, cron, and Telegram bot
 
+---
+
 
 
 ### 🏗️ Built With
 
 * [![Python][Python.io]][Python-url]
+* [![Railway.io]][Railway-url]
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -134,19 +146,19 @@ See the full license in [`LICENSE.txt`](https://en.wikipedia.org/wiki/MIT_Licens
 
 
 <!-- MARKDOWN LINKS & IMAGES -->
-[contributors-shield]: https://img.shields.io/github/contributors/nlabrazi/sjvtdm.svg?style=for-the-badge
-[contributors-url]: https://github.com/nlabrazi/sjvtdm/graphs/contributors
-[forks-shield]: https://img.shields.io/github/forks/nlabrazi/sjvtdm.svg?style=for-the-badge
-[forks-url]: https://github.com/nlabrazi/sjvtdm/network/members
-[stars-shield]: https://img.shields.io/github/stars/nlabrazi/sjvtdm.svg?style=for-the-badge
-[stars-url]: https://github.com/nlabrazi/sjvtdm/stargazers
-[issues-shield]: https://img.shields.io/github/issues/nlabrazi/sjvtdm.svg?style=for-the-badge
-[issues-url]: https://github.com/nlabrazi/sjvtdm/issues
-[license-shield]: https://img.shields.io/github/license/nlabrazi/sjvtdm.svg?style=for-the-badge
-[license-url]: https://github.com/nlabrazi/sjvtdm/blob/master/LICENSE.txt
+[contributors-shield]: https://img.shields.io/github/contributors/nlabrazi/farm-square.svg?style=for-the-badge
+[contributors-url]: https://github.com/nlabrazi/farm-square/graphs/contributors
+[forks-shield]: https://img.shields.io/github/forks/nlabrazi/farm-square.svg?style=for-the-badge
+[forks-url]: https://github.com/nlabrazi/farm-square/network/members
+[stars-shield]: https://img.shields.io/github/stars/nlabrazi/farm-square.svg?style=for-the-badge
+[stars-url]: https://github.com/nlabrazi/farm-square/stargazers
+[issues-shield]: https://img.shields.io/github/issues/nlabrazi/farm-square.svg?style=for-the-badge
+[issues-url]: https://github.com/nlabrazi/farm-square/issues
+[license-shield]: https://img.shields.io/github/license/nlabrazi/farm-square.svg?style=for-the-badge
+[license-url]: https://github.com/nlabrazi/farm-square/blob/master/LICENSE.txt
 [linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555
 [linkedin-url]: https://linkedin.com/in/nabil-labrazi
-[product-screenshot]: /public/assets/images/screenshot.png
+[product-screenshot]: app/assets/images/screenshot.png
 [Next.js]: https://img.shields.io/badge/next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white
 [Next-url]: https://nextjs.org/
 [Rails.js]: https://img.shields.io/badge/rails-%23CC0000.svg?style=for-the-badge&logo=ruby-on-rails&logoColor=white
@@ -181,3 +193,13 @@ See the full license in [`LICENSE.txt`](https://en.wikipedia.org/wiki/MIT_Licens
 [Prisma-url]: https://www.prisma.io/
 [Python.io]: https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54
 [Python-url]: https://www.python.org/
+[Railway.io]: https://img.shields.io/badge/Railway-000000?style=for-the-badge&logo=railway&logoColor=white
+[Railway-url]: https://railway.app/
+[Docker.io]: https://img.shields.io/badge/docker-2496ED?style=for-the-badge&logo=docker&logoColor=white
+[Docker-url]: https://www.docker.com/
+[PostgreSQL.js]: https://img.shields.io/badge/postgresql-316192?style=for-the-badge&logo=postgresql&logoColor=white
+[PostgreSQL-url]: https://www.postgresql.org/
+[TailwindCSS.js]: https://img.shields.io/badge/tailwindcss-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white
+[TailwindCSS-url]: https://tailwindcss.com/
+[Stimulus.js]: https://img.shields.io/badge/stimulus-0a0a0a?style=for-the-badge&logo=stimulus&logoColor=white
+[Stimulus-url]: https://stimulus.hotwired.dev/
