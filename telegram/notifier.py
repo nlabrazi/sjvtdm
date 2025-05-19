@@ -15,7 +15,7 @@ log = setup_logger("bot_logger", "bot.log")
 def escape_html(text: str) -> str:
     return escape(text)
 
-def send_to_telegram(message: str, url: str) -> bool:
+def send_to_telegram(message: str) -> bool:
     if not BOT_TOKEN or not CHAT_ID:
         log.error("❌ Missing BOT_TOKEN or CHAT_ID in .env file.")
         return False
@@ -43,4 +43,4 @@ def send_to_telegram(message: str, url: str) -> bool:
 
 def send_error_alert(error_msg: str) -> bool:
     alert = f"<b>SJVTDM Error Alert</b>\n<pre>{escape_html(error_msg)}</pre>"
-    return send_to_telegram(alert, url="https://example.com")
+    return send_to_telegram(alert)
