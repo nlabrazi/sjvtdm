@@ -35,6 +35,15 @@ TARGET_SOURCES = [
     "Les Numériques - Toute l'actualité, les tests et dossiers, les bons plans"
 ]
 
+SOURCE_EMOJI_MAP = {
+    "Les Numériques": "🧪",
+    "Polygon": "🎮",
+    "gHacks Technology News": "💻",
+    "HackerNoon": "🧠",
+    "/r/gaming": "🎮",
+    "/r/technology": "🔧",
+}
+
 def clean_html(text):
     return unescape(re.sub(r"<[^>]+>", "", text))
 
@@ -80,9 +89,14 @@ for source, group in source_map.items():
 
         summary = safe_escape(summary_raw)
         title = safe_escape(title)
+        emoji = SOURCE_EMOJI_MAP.get(source.split(" -")[0], "📰")
 
-        message = f"🚨 <b>{title}</b>\n\n{summary}"
-        success = send_to_telegram(message, url)
+        message = (
+            f"{emoji} <b>{title}</b>\n\n"
+            f"📝 {summary}\n\n"
+            f"<a href=\"{url}\">🔗 Lire l'article complet</a>"
+        )
+        success = send_to_telegram(message)
 
         if success:
             mark_article_as_sent(url)
