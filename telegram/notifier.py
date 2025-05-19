@@ -80,4 +80,9 @@ def build_caption(emoji: str, summary: str, url: str) -> str:
     if not summary_clean:
         return ""
 
-    return f"{emoji} {summary_clean}\n\n<a href=\"{url}\">🔗 Lire l'article complet</a>"
+    if emoji:
+        summary_line = f"{emoji} {summary_clean}"
+    else:
+        summary_line = summary_clean
+
+    return f"{summary_line}\n\n<a href=\"{url}\">🔗 Lire l'article complet</a>"

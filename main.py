@@ -13,7 +13,6 @@ from sources.reddit_fetcher import fetch_reddit_posts
 from utils.image_extractor import extract_image
 from utils.summarizer import generate_summary
 from telegram.notifier import send_image_with_caption, build_caption
-from telegram.notifier import send_to_telegram
 from utils.logger import setup_logger
 from database.db import setup_table, article_already_sent, mark_article_as_sent
 
@@ -38,7 +37,7 @@ TARGET_SOURCES = [
 
 SOURCE_EMOJI_MAP = {
     "Les Numériques": "🧪",
-    "Polygon": "🎮",
+    "Polygon": "📢",
     "gHacks Technology News": "💻",
     "HackerNoon": "🧠",
     "/r/gaming": "🎮",
@@ -89,18 +88,14 @@ for source, group in source_map.items():
             return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
         summary = safe_escape(summary_raw)
-        title = safe_escape(title)
-        emoji = SOURCE_EMOJI_MAP.get(source.split(" -")[0], "📰")
+        emoji = SOURCE_EMOJI_MAP.get(source.split(" -")[0], "")
         image_url = article.get("image") or "https://images.unsplash.com/photo-1589523322065-40163a8dd001?auto=format&fit=crop&w=800&q=80"
+        caption = build_caption(emoji, summary, url)
 
-        message = f"{emoji} <b>{title}</b>\n\n"
-
-        if summary.strip():
-            message += f"📝 {summary}\n\n"
-
-        message += f"<a href=\"{url}\">🔗 Lire l'article complet</a>"
-
-        success = send_to_telegram(message)
+        if caption:
+            success = send_image_with_caption(image_url, caption)
+        else:
+            success = False
 
         if success:
             mark_article_as_sent(url)
