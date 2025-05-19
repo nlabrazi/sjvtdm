@@ -20,11 +20,9 @@ def send_to_telegram(message: str, url: str) -> bool:
         log.error("❌ Missing BOT_TOKEN or CHAT_ID in .env file.")
         return False
 
-    html_message = f"{message}\n<a href=\"{url}\">&#8205;</a>"
-
     payload = {
         "chat_id": CHAT_ID,
-        "text": html_message,
+        "text": message,
         "parse_mode": "HTML",
         "disable_web_page_preview": False
     }
