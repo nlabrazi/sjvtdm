@@ -91,11 +91,13 @@ for source, group in source_map.items():
         title = safe_escape(title)
         emoji = SOURCE_EMOJI_MAP.get(source.split(" -")[0], "📰")
 
-        message = (
-            f"{emoji} <b>{title}</b>\n\n"
-            f"📝 {summary}\n\n"
-            f"<a href=\"{url}\">🔗 Lire l'article complet</a>"
-        )
+        message = f"{emoji} <b>{title}</b>\n\n"
+
+        if summary.strip():
+            message += f"📝 {summary}\n\n"
+
+        message += f"<a href=\"{url}\">🔗 Lire l'article complet</a>"
+
         success = send_to_telegram(message)
 
         if success:
