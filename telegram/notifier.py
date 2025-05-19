@@ -12,8 +12,36 @@ CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 log = setup_logger("bot_logger", "bot.log")
 
+
 def escape_html(text: str) -> str:
     return escape(text)
+
+
+def send_image_with_caption(image_url: str, caption: str) -> bool:
+    if not BOT_TOKEN or not CHAT_ID:
+        log.error("❌ Missing BOT_TOKEN or CHAT_ID in .env file.")
+        return False
+
+    payload = {
+        "chat_id": CHAT_ID,
+        "photo": image_url,
+        "caption": caption,
+        "parse_mode": "HTML"
+    }
+
+    try:
+        response = requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto", data=payload)
+        result = response.json()
+        if response.status_code == 200 and result.get("ok"):
+            log.info(f"✅ Image message sent to Telegram.")
+            return True
+        else:
+            log.error(f"❌ Failed to send image: {result}")
+            return False
+    except Exception as e:
+        log.exception(f"❌ Exception while sending image: {e}")
+        return False
+
 
 def send_to_telegram(message: str) -> bool:
     if not BOT_TOKEN or not CHAT_ID:
@@ -24,7 +52,7 @@ def send_to_telegram(message: str) -> bool:
         "chat_id": CHAT_ID,
         "text": message,
         "parse_mode": "HTML",
-        "disable_web_page_preview": False
+        "disable_web_page_preview": True
     }
 
     try:
@@ -41,6 +69,15 @@ def send_to_telegram(message: str) -> bool:
         log.exception(f"❌ Exception while sending message: {e}")
         return False
 
+
 def send_error_alert(error_msg: str) -> bool:
     alert = f"<b>SJVTDM Error Alert</b>\n<pre>{escape_html(error_msg)}</pre>"
     return send_to_telegram(alert)
+
+
+def build_caption(emoji: str, summary: str, url: str) -> str:
+    summary_clean = summary.strip()
+    if not summary_clean:
+        return ""
+
+    return f"{emoji} {summary_clean}\n\n<a href=\"{url}\">🔗 Lire l'article complet</a>"
