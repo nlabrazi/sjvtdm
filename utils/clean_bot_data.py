@@ -1,11 +1,18 @@
 import os
 import time
-from datetime import datetime
+import psycopg2
+from dotenv import load_dotenv
+from datetime import datetime, timedelta
+
+# Chargement .env si nécessaire
+if not os.getenv("DATABASE_URL"):
+    load_dotenv()
+
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 # Configuration
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOG_DIR = os.path.join(BASE_DIR, "logs")
-SENT_FILE = os.path.join(LOG_DIR, "sent_articles.json")
 RETENTION_DAYS = 3
 
 def clean_old_logs(retention_days=RETENTION_DAYS):
@@ -27,14 +34,27 @@ def clean_old_logs(retention_days=RETENTION_DAYS):
         print("✅ No old logs to delete.")
 
 def clean_sent_articles():
-    if os.path.exists(SENT_FILE):
-        with open(SENT_FILE, "w", encoding="utf-8") as f:
-            f.write("{}")
-        print(f"🧼 Cleared: sent_articles.json")
-    else:
-        print("❗ sent_articles.json does not exist.")
+    if not DATABASE_URL:
+        print("❌ DATABASE_URL not set.")
+        return
+
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+        cur = conn.cursor()
+
+        cutoff = datetime.utcnow() - timedelta(days=RETENTION_DAYS)
+        cur.execute("DELETE FROM sent_articles WHERE sent_at < %s", (cutoff,))
+        deleted = cur.rowcount
+
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        print(f"🧼 Deleted {deleted} old entries from sent_articles (before {cutoff}).")
+    except Exception as e:
+        print(f"❌ Error while cleaning sent_articles: {e}")
 
 if __name__ == "__main__":
-    print(f"🔧 Cleaning logs older than {RETENTION_DAYS} days — {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"🔧 Cleaning logs and DB entries older than {RETENTION_DAYS} days — {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     clean_old_logs()
     clean_sent_articles()
