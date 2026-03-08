@@ -1,63 +1,15 @@
-## [Unreleased] - 2026-03-01
+# Changelog
 
-### ✨ Feat
-- rework style messages
-- update db and main (2025-04-30 00:00)
-- add setup for railway
-- enhance summary, clear filters & logs
-- stable Telegram integration with batching, HTML formatting, and rate limit handling
-- add switch between local & prod
-- group Telegram messages by source + cleanup pyc files
-- Add logging system and production-ready cron integration
+## [Unreleased] - 2026-03-08
 
-### 🔧 Chore
-- update screenshot and start (2025-05-18 23:13)
-- add railway json config file
-- adding  setup for render
-- adding  setup for render
-
-### 🐛 Fix
-- make start.sh executable for railway
-- use default Railway PG env vars
-- clean and minimal requirements.txt for Railway
-- escape markdown for telegram & source for twitter
-- markdown issue on telegram
-- reset JSON to send articles
-- add sent_articles.json which was ignored
-- adding missing praw for GithubActions into requirements.txt
-
-### 🔖 Others
-- feat(railway): rework clean_bot for pg + feat(telegram): revert to preview articles
-- feat(telegram): rework format of messages
-- feat(reedit): remove summary if empty
-- hot fix: notifier.py
-- debug: add debug file, will rework application regarding issue with GithubAction
-- ✨ Improve Telegram notifications and logging
-
-## [Unreleased] - 2025-04-29
-
-### ✨ Feat
-- enhance summary, clear filters & logs
-- stable Telegram integration with batching, HTML formatting, and rate limit handling
-- add switch between local & prod
-- group Telegram messages by source + cleanup pyc files
-- Add logging system and production-ready cron integration
-
-### 🐛 Fix
-- escape markdown for telegram & source for twitter
-- markdown issue on telegram
-- reset JSON to send articles
-- add sent_articles.json which was ignored
-- adding missing praw for GithubActions into requirements.txt
-
-### 🔧 Chore
-- adding  setup for render
-
-### 🔖 Others
-- debug: add debug file, will rework application regarding issue with GithubAction
-- ✨ Improve Telegram notifications and logging
-
-# 🗒️ CHANGELOG
+### Changed
+- centralisation du chargement de configuration et des variables d’environnement
+- refactor de `main.py` avec point d’entrée explicite et moins d’effets de bord
+- utilisation de clés de sources stables pour éviter la logique basée sur les titres distants
+- amélioration du fallback de résumé, surtout pour Reddit quand la description est vide
+- ajout de timeouts HTTP et validation des URLs injectées dans les messages Telegram
+- correction du nettoyage des logs et mutualisation des opérations de base de données
+- suppression du code mort et des variables d’environnement obsolètes
 
 ## [0.3.0] - 2025-04-24
 

@@ -1,10 +1,9 @@
 feedparser
-python-dotenv
-requests
 praw
 sumy
 nltk
-beautifulsoup4
 numpy
 scipy
 psycopg2-binary
+python-dotenv
+requests

@@ -1,115 +1,125 @@
-import warnings
-warnings.filterwarnings("ignore", category=UserWarning, module="scipy")
-
-import os
-import json
-import nltk
 import time
-import re
-from html import unescape
+from collections import defaultdict
 
-from sources.rss_fetcher import fetch_rss_articles
+from config import MAX_MESSAGES_PER_MINUTE, MAX_MESSAGES_PER_SOURCE
+from database.db import find_sent_urls, mark_article_as_sent, setup_table
 from sources.reddit_fetcher import fetch_reddit_posts
-from utils.image_extractor import extract_image
-from utils.summarizer import generate_summary
-from telegram.notifier import send_to_telegram, build_message
+from sources.rss_fetcher import fetch_rss_articles
+from telegram.notifier import build_message, escape_html, send_to_telegram
 from utils.logger import setup_logger
-from database.db import setup_table, article_already_sent, mark_article_as_sent
+from utils.summarizer import generate_summary
 
-# Setup
-setup_table()
-nltk.download("punkt", quiet=True)
+
 log = setup_logger("cron_push_logger", "cron_push.log")
 
-# Constantes
-MAX_MESSAGES_PER_MINUTE = 20
-MAX_MESSAGES_PER_SOURCE = 10
-GLOBAL_COUNT = 0
-
-TARGET_SOURCES = [
-    "Polygon",
-    "gHacks Technology News",
-    "HackerNoon",
-    "/r/technology",
-    "/r/gaming",
-    "Les Numériques - Toute l'actualité, les tests et dossiers, les bons plans"
+TARGET_SOURCE_KEYS = [
+    "polygon",
+    "ghacks",
+    "hackernoon",
+    "reddit_technology",
+    "reddit_gaming",
+    "les_numeriques",
 ]
 
 SOURCE_EMOJI_MAP = {
-    "Les Numériques": "🧪",
-    "Polygon": "📢",
-    "gHacks Technology News": "💻",
-    "HackerNoon": "🧠",
-    "/r/gaming": "🎮",
-    "/r/technology": "🔧",
+    "polygon": "📢",
+    "ghacks": "💻",
+    "hackernoon": "🧠",
+    "reddit_technology": "🔧",
+    "reddit_gaming": "🎮",
+    "les_numeriques": "🧪",
 }
 
-def clean_html(text):
-    return unescape(re.sub(r"<[^>]+>", "", text))
 
-# Fetch articles
-rss_articles = fetch_rss_articles()
-reddit_posts = fetch_reddit_posts()
-articles = rss_articles + reddit_posts
+def collect_articles():
+    return fetch_rss_articles() + fetch_reddit_posts()
 
-source_map = {}
-for article in articles:
-    source = article.get("source", "❓ Unknown")
-    source_map.setdefault(source, []).append(article)
 
-sent_count = 0
+def group_articles_by_source(articles):
+    grouped_articles = defaultdict(list)
+    for article in articles:
+        source_key = article.get("source_key")
+        if source_key in TARGET_SOURCE_KEYS:
+            grouped_articles[source_key].append(article)
+    return grouped_articles
 
-# Traitement par source
-for source, group in source_map.items():
-    if source not in TARGET_SOURCES:
-        continue
 
-    source_count = 0
+def build_article_message(article):
+    title = article.get("title", "")
+    description = article.get("description") or title
+    summary_raw = generate_summary(
+        title,
+        description,
+        max_sentences=2,
+        language=article.get("language", "english"),
+    )
+    summary = escape_html(summary_raw)
+    emoji = SOURCE_EMOJI_MAP.get(article.get("source_key", ""), "")
+    return build_message(emoji, summary, article.get("link", ""))
 
-    for article in group:
-        url = article["link"]
 
-        if article_already_sent(url):
+def send_pending_articles():
+    articles = collect_articles()
+    if not articles:
+        log.info("No articles fetched.")
+        return 0
+
+    sent_urls = find_sent_urls(article.get("link", "") for article in articles)
+    source_map = group_articles_by_source(articles)
+    sent_count = 0
+    global_count = 0
+
+    for source_key in TARGET_SOURCE_KEYS:
+        group = source_map.get(source_key, [])
+        if not group:
             continue
 
-        if source_count >= MAX_MESSAGES_PER_SOURCE:
-            log.info(f"⏭️ Limite atteinte pour: {source}")
-            break
+        source_label = group[0].get("source_label", source_key)
+        source_count = 0
 
-        raw_title = article["title"]
-        raw_description = article.get("description", "")
+        for article in group:
+            url = (article.get("link") or "").strip()
+            if not url or url in sent_urls:
+                continue
 
-        title = clean_html(raw_title)
-        description = clean_html(raw_description)
+            if source_count >= MAX_MESSAGES_PER_SOURCE:
+                log.info("Per-source limit reached for %s.", source_label)
+                break
 
-        summary_raw = generate_summary(title, description, max_sentences=2)
+            message = build_article_message(article)
+            if not message:
+                log.info("Skipped article with empty message: %s", url)
+                continue
 
-        def safe_escape(text):
-            return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            if send_to_telegram(message, preview=True):
+                mark_article_as_sent(url)
+                sent_urls.add(url)
+                sent_count += 1
+                source_count += 1
+                global_count += 1
 
-        summary = safe_escape(summary_raw)
-        emoji = SOURCE_EMOJI_MAP.get(source.split(" -")[0], "")
-        message = build_message(emoji, summary, url)
+            time.sleep(1)
 
-        if message:
-            success = send_to_telegram(message, preview=True)
-        else:
-            success = False
+            if global_count >= MAX_MESSAGES_PER_MINUTE:
+                log.info("Global rate limit reached, sleeping for 60 seconds.")
+                time.sleep(60)
+                global_count = 0
 
-        if success:
-            mark_article_as_sent(url)
-            sent_count += 1
-            source_count += 1
-            GLOBAL_COUNT += 1
+        log.info("Processed source %s: %s new article(s) sent.", source_label, source_count)
+        time.sleep(10)
 
-        time.sleep(1)
+    log.info("Sent %s new articles to Telegram.", sent_count)
+    return sent_count
 
-        if GLOBAL_COUNT >= MAX_MESSAGES_PER_MINUTE:
-            log.info("⏳ Limite globale atteinte, pause 60s.")
-            time.sleep(60)
-            GLOBAL_COUNT = 0
 
-    log.info(f"⏳ Sleep après: {source}")
-    time.sleep(10)
+def main():
+    try:
+        setup_table()
+        send_pending_articles()
+    except Exception:
+        log.exception("Push job failed.")
+        raise
 
-log.info(f"✅ Sent {sent_count} new articles to Telegram")
+
+if __name__ == "__main__":
+    main()
