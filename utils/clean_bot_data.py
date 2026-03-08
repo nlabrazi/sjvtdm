@@ -1,60 +1,50 @@
-import os
 import time
-import psycopg2
-from dotenv import load_dotenv
 from datetime import datetime, timedelta
 
-# Chargement .env si nécessaire
-if not os.getenv("DATABASE_URL"):
-    load_dotenv()
+from config import LOGS_DIR, RETENTION_DAYS
+from database.db import delete_articles_older_than
+from utils.logger import setup_logger
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+log = setup_logger("cron_clean_logger", "cron_clean.log")
 
-# Configuration
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-LOG_DIR = os.path.join(BASE_DIR, "logs")
-RETENTION_DAYS = 3
 
 def clean_old_logs(retention_days=RETENTION_DAYS):
     now = time.time()
-    if not os.path.exists(LOG_DIR):
-        print("❗ Log directory does not exist.")
-        return
+    if not LOGS_DIR.exists():
+        log.info("Log directory does not exist.")
+        return 0
 
     deleted = 0
-    for file in os.listdir(LOG_DIR):
-        file_path = os.path.join(LOG_DIR, file)
-        if os.path.isfile(file_path):
-            file_age = now - os.path.getmtime(file_path)
+    for file_path in LOGS_DIR.iterdir():
+        if file_path.is_file():
+            file_age = now - file_path.stat().st_mtime
             if file_age > retention_days * 86400:  # seconds in a day
-                os.remove(file_path)
-                print(f"🧹 Deleted old log: {file}")
+                file_path.unlink()
+                log.info("Deleted old log: %s", file_path.name)
                 deleted += 1
     if deleted == 0:
-        print("✅ No old logs to delete.")
+        log.info("No old logs to delete.")
+    return deleted
 
-def clean_sent_articles():
-    if not DATABASE_URL:
-        print("❌ DATABASE_URL not set.")
-        return
-
+def clean_sent_articles(retention_days=RETENTION_DAYS):
+    cutoff = datetime.utcnow() - timedelta(days=retention_days)
     try:
-        conn = psycopg2.connect(DATABASE_URL)
-        cur = conn.cursor()
-
-        cutoff = datetime.utcnow() - timedelta(days=RETENTION_DAYS)
-        cur.execute("DELETE FROM sent_articles WHERE sent_at < %s", (cutoff,))
-        deleted = cur.rowcount
-
-        conn.commit()
-        cur.close()
-        conn.close()
-
-        print(f"🧼 Deleted {deleted} old entries from sent_articles (before {cutoff}).")
+        deleted = delete_articles_older_than(cutoff)
+        log.info("Deleted %s old entries from sent_articles (before %s).", deleted, cutoff)
+        return deleted
     except Exception as e:
-        print(f"❌ Error while cleaning sent_articles: {e}")
+        log.exception("Error while cleaning sent_articles: %s", e)
+        return 0
 
-if __name__ == "__main__":
-    print(f"🔧 Cleaning logs and DB entries older than {RETENTION_DAYS} days — {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+def main():
+    log.info(
+        "Cleaning logs and DB entries older than %s days - %s",
+        RETENTION_DAYS,
+        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    )
     clean_old_logs()
     clean_sent_articles()
+
+if __name__ == "__main__":
+    main()
