@@ -10,6 +10,7 @@ from sources.catalog import RSS_SOURCE_CONFIGS
 log = logging.getLogger("cron_push_logger")
 
 REQUEST_HEADERS = {"User-Agent": HTTP_USER_AGENT}
+SESSION = requests.Session()
 
 
 def fetch_rss_articles(limit=10):
@@ -17,12 +18,19 @@ def fetch_rss_articles(limit=10):
 
     for source_config in RSS_SOURCE_CONFIGS:
         try:
-            response = requests.get(
+            response = SESSION.get(
                 source_config["url"],
                 headers=REQUEST_HEADERS,
                 timeout=HTTP_TIMEOUT_SECONDS,
             )
             response.raise_for_status()
+        except requests.Timeout:
+            log.warning(
+                "Timed out while fetching RSS feed %s after %s second(s).",
+                source_config["source_label"],
+                HTTP_TIMEOUT_SECONDS,
+            )
+            continue
         except requests.RequestException as exc:
             log.warning("Failed to fetch RSS feed %s: %s", source_config["source_label"], exc)
             continue
