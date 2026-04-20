@@ -5,7 +5,7 @@
 [![Forks][forks-shield]][forks-url]
 [![Stargazers][stars-shield]][stars-url]
 [![Issues][issues-shield]][issues-url]
-[![MIT License][license-shield]][license-url]
+[![License][license-shield]][license-url]
 [![LinkedIn][linkedin-shield]][linkedin-url]
 
 
@@ -23,7 +23,7 @@
       <a href="#about-the-project">About The Project</a>
       <ul>
         <li><a href="#️-description">Description</a></li>
-        <li><a href="#-planned-features">Planned Features</a></li>
+        <li><a href="#-main-features">Main Features</a></li>
         <li><a href="#️-built-with">Built With</a></li>
       </ul>
     </li>
@@ -65,23 +65,24 @@
 <!-- DESCRIPTION -->
 ### ℹ️ Description
 
-A Telegram bot that automatically centralizes relevant news and updates from various sources (Twitter, RSS feeds, etc.) into a personal or private Telegram channel.
+A Telegram bot that automatically centralizes relevant news and updates from RSS feeds and Reddit into a personal or private Telegram channel.
 
-- 📰 Collects fresh articles from sources like Polygon, Reddit, and gHacks (`sources/*.py`)
-- ✂️ Generates concise, 2-sentence summaries with smart anti-duplicate logic (`summarizer.py`)
-- 📤 Sends structured, enriched previews to Telegram 3 times a day (`main.py`)
-- 🧹 Cleans up outdated entries to keep your feed sharp and relevant (`clean_bot_data.py`)
+- 📰 Collects fresh articles from sources like Polygon, Reddit, gHacks, HackerNoon, and Les Numeriques (`sources/*.py`)
+- ✂️ Generates concise, 2-sentence summaries with smart anti-duplicate logic (`utils/summarizer.py`)
+- 📤 Sends structured Telegram messages from `main.py`
+- 🧹 Cleans up outdated entries to keep your feed sharp and relevant (`utils/clean_bot_data.py`)
 
 ---
 
-### 🚀 Planned Features
+### 🚀 Main Features
 
 - 🔁 Fetch news via RSS feeds
 - 📥 Aggregate Reddit content
-- 🧠 Deduplication to prevent reposts
+- 🧠 Deduplicate already sent URLs with PostgreSQL
 - 📤 Automatically post grouped content to Telegram
-- ⏱️ Scheduled jobs via cron (push at 8h, 16h, 00h and clean at 2h)
-- 📜 Detailed logs with separate files for push, cron, and Telegram bot
+- ⏱️ Run locally for development and testing
+- 🖥️ Run in production on a VPS, typically via cron
+- 📜 Keep separate logs for push, cleanup, and Telegram sends
 
 ---
 
@@ -101,7 +102,7 @@ A Telegram bot that automatically centralizes relevant news and updates from var
 ### 🏗️ Built With
 
 * [![Python][Python.io]][Python-url]
-* [![Railway.io]][Railway-url]
+* [![PostgreSQL][PostgreSQL.js]][PostgreSQL-url]
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -116,7 +117,7 @@ A Telegram bot that automatically centralizes relevant news and updates from var
 <!-- GETTING STARTED -->
 # ✅ Getting Started
 
-This project runs on 🐍 Python with scheduled jobs for pushing content to Telegram.
+This project runs on 🐍 Python locally for development and testing, then on a VPS for production execution.
 Below are installation instructions for a Python-based project.
 
 
@@ -128,6 +129,14 @@ Below are installation instructions for a Python-based project.
 python -m venv venv
 source venv/bin/activate  # or .\venv\Scripts\activate (Windows)
 pip install -r requirements.txt
+cp .env.example .env
+```
+
+For local runs:
+
+```bash
+python main.py
+python utils/clean_bot_data.py
 ```
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -155,10 +164,8 @@ Thanks a lot for your support! 💙
 <!-- LICENSE -->
 ### 📄 License
 
-This project is licensed under the **MIT License** 📜.
-You're free to use, modify, and distribute it — just remember to give credit 🤝.
-
-See the full license in [`LICENSE.txt`](https://en.wikipedia.org/wiki/MIT_License) for details.
+No license file is currently committed in the repository.
+If you want to publish the project under MIT or another license, add the corresponding license file to the repo.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -168,7 +175,6 @@ See the full license in [`LICENSE.txt`](https://en.wikipedia.org/wiki/MIT_Licens
 ### 📬 Contact
 
 - 👤 [Linkedin][linkedin-url]
-- 🐦 [@Nabil](https://twitter.com/Nabil71405502)
 - 📧 na.labrazi@gmail.com
 - 🔗 [Portfolio](https://nabil-labrazi.fr)
 - 📁 [Project Repository](https://github.com/nlabrazi/sjvtdm)
@@ -178,19 +184,19 @@ See the full license in [`LICENSE.txt`](https://en.wikipedia.org/wiki/MIT_Licens
 
 
 <!-- MARKDOWN LINKS & IMAGES -->
-[contributors-shield]: https://img.shields.io/github/contributors/nlabrazi/farm-square.svg?style=for-the-badge
-[contributors-url]: https://github.com/nlabrazi/farm-square/graphs/contributors
-[forks-shield]: https://img.shields.io/github/forks/nlabrazi/farm-square.svg?style=for-the-badge
-[forks-url]: https://github.com/nlabrazi/farm-square/network/members
-[stars-shield]: https://img.shields.io/github/stars/nlabrazi/farm-square.svg?style=for-the-badge
-[stars-url]: https://github.com/nlabrazi/farm-square/stargazers
-[issues-shield]: https://img.shields.io/github/issues/nlabrazi/farm-square.svg?style=for-the-badge
-[issues-url]: https://github.com/nlabrazi/farm-square/issues
-[license-shield]: https://img.shields.io/github/license/nlabrazi/farm-square.svg?style=for-the-badge
-[license-url]: https://github.com/nlabrazi/farm-square/blob/master/LICENSE.txt
+[contributors-shield]: https://img.shields.io/github/contributors/nlabrazi/sjvtdm.svg?style=for-the-badge
+[contributors-url]: https://github.com/nlabrazi/sjvtdm/graphs/contributors
+[forks-shield]: https://img.shields.io/github/forks/nlabrazi/sjvtdm.svg?style=for-the-badge
+[forks-url]: https://github.com/nlabrazi/sjvtdm/network/members
+[stars-shield]: https://img.shields.io/github/stars/nlabrazi/sjvtdm.svg?style=for-the-badge
+[stars-url]: https://github.com/nlabrazi/sjvtdm/stargazers
+[issues-shield]: https://img.shields.io/github/issues/nlabrazi/sjvtdm.svg?style=for-the-badge
+[issues-url]: https://github.com/nlabrazi/sjvtdm/issues
+[license-shield]: https://img.shields.io/github/license/nlabrazi/sjvtdm.svg?style=for-the-badge
+[license-url]: https://github.com/nlabrazi/sjvtdm
 [linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555
 [linkedin-url]: https://linkedin.com/in/nabil-labrazi
-[product-screenshot]: app/assets/images/screenshot.png
+[product-screenshot]: public/assets/images/screenshot.png
 [Next.js]: https://img.shields.io/badge/next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white
 [Next-url]: https://nextjs.org/
 [Rails.js]: https://img.shields.io/badge/rails-%23CC0000.svg?style=for-the-badge&logo=ruby-on-rails&logoColor=white
