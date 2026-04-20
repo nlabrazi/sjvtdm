@@ -1,8 +1,8 @@
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from config import LOGS_DIR, RETENTION_DAYS
-from database.db import delete_articles_older_than
+from database.db import delete_articles_older_than, setup_table
 from utils.logger import setup_logger
 
 log = setup_logger("cron_clean_logger", "cron_clean.log")
@@ -26,11 +26,13 @@ def clean_old_logs(retention_days=RETENTION_DAYS):
         log.info("No old logs to delete.")
     return deleted
 
+
 def clean_sent_articles(retention_days=RETENTION_DAYS):
-    cutoff = datetime.utcnow() - timedelta(days=retention_days)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
     try:
+        setup_table()
         deleted = delete_articles_older_than(cutoff)
-        log.info("Deleted %s old entries from sent_articles (before %s).", deleted, cutoff)
+        log.info("Deleted %s old entries from sent_articles (before %s).", deleted, cutoff.isoformat())
         return deleted
     except Exception as e:
         log.exception("Error while cleaning sent_articles: %s", e)
@@ -38,13 +40,15 @@ def clean_sent_articles(retention_days=RETENTION_DAYS):
 
 
 def main():
+    started_at = datetime.now(timezone.utc).isoformat()
     log.info(
         "Cleaning logs and DB entries older than %s days - %s",
         RETENTION_DAYS,
-        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        started_at,
     )
     clean_old_logs()
     clean_sent_articles()
+
 
 if __name__ == "__main__":
     main()

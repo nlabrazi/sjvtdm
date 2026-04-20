@@ -3,6 +3,7 @@ from collections import defaultdict
 
 from config import MAX_MESSAGES_PER_MINUTE, MAX_MESSAGES_PER_SOURCE
 from database.db import find_sent_urls, mark_article_as_sent, setup_table
+from sources.catalog import SOURCE_EMOJI_MAP, TARGET_SOURCE_KEYS
 from sources.reddit_fetcher import fetch_reddit_posts
 from sources.rss_fetcher import fetch_rss_articles
 from telegram.notifier import build_message, escape_html, send_to_telegram
@@ -11,24 +12,6 @@ from utils.summarizer import generate_summary
 
 
 log = setup_logger("cron_push_logger", "cron_push.log")
-
-TARGET_SOURCE_KEYS = [
-    "polygon",
-    "ghacks",
-    "hackernoon",
-    "reddit_technology",
-    "reddit_gaming",
-    "les_numeriques",
-]
-
-SOURCE_EMOJI_MAP = {
-    "polygon": "📢",
-    "ghacks": "💻",
-    "hackernoon": "🧠",
-    "reddit_technology": "🔧",
-    "reddit_gaming": "🎮",
-    "les_numeriques": "🧪",
-}
 
 
 def collect_articles():

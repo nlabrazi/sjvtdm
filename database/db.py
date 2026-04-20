@@ -15,10 +15,29 @@ def setup_table():
                 CREATE TABLE IF NOT EXISTS sent_articles (
                     id SERIAL PRIMARY KEY,
                     url TEXT UNIQUE NOT NULL,
-                    sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    sent_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
                 );
                 """
             )
+            cur.execute(
+                """
+                SELECT data_type
+                FROM information_schema.columns
+                WHERE table_schema = current_schema()
+                  AND table_name = 'sent_articles'
+                  AND column_name = 'sent_at'
+                """
+            )
+            sent_at_column = cur.fetchone()
+            if sent_at_column and sent_at_column[0] == "timestamp without time zone":
+                # Existing rows were historically written with utcnow(), so convert them as UTC.
+                cur.execute(
+                    """
+                    ALTER TABLE sent_articles
+                    ALTER COLUMN sent_at TYPE TIMESTAMPTZ
+                    USING sent_at AT TIME ZONE 'UTC'
+                    """
+                )
 
 
 def find_sent_urls(urls):

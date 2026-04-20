@@ -3,23 +3,10 @@ import os
 
 import praw
 
+from sources.catalog import REDDIT_SOURCE_CONFIGS
+
 
 log = logging.getLogger("cron_push_logger")
-
-SUBREDDITS = [
-    {
-        "name": "technology",
-        "source_key": "reddit_technology",
-        "source_label": "/r/technology",
-        "language": "english",
-    },
-    {
-        "name": "gaming",
-        "source_key": "reddit_gaming",
-        "source_label": "/r/gaming",
-        "language": "english",
-    },
-]
 
 
 def get_reddit_client():
@@ -44,9 +31,9 @@ def fetch_reddit_posts(limit=5):
         return []
 
     posts = []
-    for subreddit in SUBREDDITS:
+    for source_config in REDDIT_SOURCE_CONFIGS:
         try:
-            submissions = reddit.subreddit(subreddit["name"]).new(limit=limit)
+            submissions = reddit.subreddit(source_config["subreddit"]).new(limit=limit)
             for submission in submissions:
                 image_url = None
                 if hasattr(submission, "preview") and "images" in submission.preview:
@@ -54,9 +41,9 @@ def fetch_reddit_posts(limit=5):
 
                 posts.append(
                     {
-                        "source_key": subreddit["source_key"],
-                        "source_label": subreddit["source_label"],
-                        "language": subreddit["language"],
+                        "source_key": source_config["source_key"],
+                        "source_label": source_config["source_label"],
+                        "language": source_config["language"],
                         "title": submission.title,
                         "description": submission.selftext or submission.title,
                         "link": f"https://www.reddit.com{submission.permalink}",
@@ -64,6 +51,6 @@ def fetch_reddit_posts(limit=5):
                     }
                 )
         except Exception as exc:
-            log.warning("Failed to fetch subreddit %s: %s", subreddit["name"], exc)
+            log.warning("Failed to fetch subreddit %s: %s", source_config["subreddit"], exc)
 
     return posts
