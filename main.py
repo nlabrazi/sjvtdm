@@ -6,7 +6,7 @@ from database.db import find_sent_urls, get_db_connection, mark_articles_as_sent
 from sources.catalog import SOURCE_EMOJI_MAP, TARGET_SOURCE_KEYS
 from sources.reddit_fetcher import fetch_reddit_posts
 from sources.rss_fetcher import fetch_rss_articles
-from telegram.notifier import build_message, escape_html, send_to_telegram
+from telegram.notifier import build_message, escape_html, send_to_telegram_result
 from utils.logger import setup_logger
 from utils.summarizer import generate_summary
 
@@ -39,6 +39,21 @@ def build_article_message(article):
     summary = escape_html(summary_raw)
     emoji = SOURCE_EMOJI_MAP.get(article.get("source_key", ""), "")
     return build_message(emoji, summary, article.get("link", ""))
+
+
+def send_article_message(message: str, preview: bool = True) -> tuple[bool, int | None]:
+    send_result = send_to_telegram_result(message, preview=preview)
+    if send_result.success:
+        return True, None
+
+    if send_result.retry_after:
+        wait_seconds = max(1, send_result.retry_after)
+        log.info("Retrying current Telegram message after %s second(s).", wait_seconds)
+        time.sleep(wait_seconds)
+        retry_result = send_to_telegram_result(message, preview=preview)
+        return retry_result.success, wait_seconds
+
+    return False, None
 
 
 def send_pending_articles():
@@ -76,7 +91,11 @@ def send_pending_articles():
                     log.info("Skipped article with empty message: %s", url)
                     continue
 
-                if send_to_telegram(message, preview=True):
+                send_succeeded, retry_wait = send_article_message(message, preview=True)
+                if retry_wait:
+                    global_count = 0
+
+                if send_succeeded:
                     source_sent_urls.append(url)
                     sent_urls.add(url)
                     sent_count += 1

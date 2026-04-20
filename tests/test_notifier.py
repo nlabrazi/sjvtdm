@@ -42,6 +42,26 @@ class NotifierTests(unittest.TestCase):
 
     @patch("telegram.notifier.BOT_TOKEN", "token")
     @patch("telegram.notifier.CHAT_ID", "chat")
+    def test_send_to_telegram_result_exposes_retry_after_when_rate_limited(self):
+        response = build_mock_response(
+            status_code=429,
+            json_data={
+                "ok": False,
+                "description": "Too Many Requests: retry later",
+                "parameters": {"retry_after": 17},
+            },
+        )
+
+        with patch("telegram.notifier.SESSION.post", return_value=response):
+            from telegram.notifier import send_to_telegram_result
+
+            send_result = send_to_telegram_result("hello")
+
+        self.assertFalse(send_result.success)
+        self.assertEqual(send_result.retry_after, 17)
+
+    @patch("telegram.notifier.BOT_TOKEN", "token")
+    @patch("telegram.notifier.CHAT_ID", "chat")
     def test_send_to_telegram_handles_rate_limit_response(self):
         response = build_mock_response(
             status_code=429,

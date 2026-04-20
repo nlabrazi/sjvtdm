@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import call, patch
 
 import main
+from telegram.notifier import TelegramSendResult
 
 
 class MainTests(unittest.TestCase):
@@ -78,7 +79,7 @@ class MainTests(unittest.TestCase):
             with patch("main.get_db_connection", return_value=fake_conn):
                 with patch("main.find_sent_urls", return_value=set()):
                     with patch("main.build_article_message", return_value="message"):
-                        with patch("main.send_to_telegram", return_value=True):
+                        with patch("main.send_article_message", return_value=(True, None)):
                             with patch("main.mark_articles_as_sent") as mock_mark_articles_as_sent:
                                 sent_count = main.send_pending_articles()
 
@@ -93,3 +94,37 @@ class MainTests(unittest.TestCase):
             ]
         )
         self.assertEqual(fake_conn.commit_count, 2)
+
+    @patch("main.time.sleep", return_value=None)
+    def test_send_pending_articles_retries_current_message_after_telegram_retry_after(self, mock_sleep):
+        fake_conn = self.FakeConnection()
+        articles = [
+            {
+                "source_key": "polygon",
+                "source_label": "Polygon",
+                "title": "One",
+                "description": "Desc one",
+                "language": "english",
+                "link": "https://example.com/one",
+            },
+        ]
+
+        with patch("main.collect_articles", return_value=articles):
+            with patch("main.get_db_connection", return_value=fake_conn):
+                with patch("main.find_sent_urls", return_value=set()):
+                    with patch("main.build_article_message", return_value="message"):
+                        with patch(
+                            "main.send_to_telegram_result",
+                            side_effect=[
+                                TelegramSendResult(success=False, retry_after=17),
+                                TelegramSendResult(success=True),
+                            ],
+                        ) as mock_send_to_telegram_result:
+                            with patch("main.mark_articles_as_sent") as mock_mark_articles_as_sent:
+                                sent_count = main.send_pending_articles()
+
+        self.assertEqual(sent_count, 1)
+        self.assertEqual(mock_send_to_telegram_result.call_count, 2)
+        mock_mark_articles_as_sent.assert_called_once_with(["https://example.com/one"], conn=fake_conn)
+        self.assertEqual(fake_conn.commit_count, 1)
+        mock_sleep.assert_has_calls([call(17), call(1), call(10)])

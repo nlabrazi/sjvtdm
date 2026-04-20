@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import requests
 from html import escape
 from urllib.parse import urlparse
@@ -10,6 +11,12 @@ CHAT_ID = TELEGRAM_CHAT_ID
 SESSION = requests.Session()
 
 log = setup_logger("bot_logger", "bot.log")
+
+
+@dataclass(frozen=True)
+class TelegramSendResult:
+    success: bool
+    retry_after: int | None = None
 
 
 def escape_html(text: str) -> str:
@@ -53,10 +60,10 @@ def build_response_details(response: requests.Response, result: dict) -> str:
     return f"HTTP {response.status_code}"
 
 
-def send_to_telegram(message: str, preview: bool = False) -> bool:
+def send_to_telegram_result(message: str, preview: bool = False) -> TelegramSendResult:
     if not BOT_TOKEN or not CHAT_ID:
         log.error("❌ Missing BOT_TOKEN or CHAT_ID in .env file.")
-        return False
+        return TelegramSendResult(success=False)
 
     payload = {
         "chat_id": CHAT_ID,
@@ -75,22 +82,26 @@ def send_to_telegram(message: str, preview: bool = False) -> bool:
         if response.status_code == 200 and result.get("ok"):
             preview_msg = message.replace("\n", " ")[:100] + "..." if len(message) > 100 else message
             log.info(f"✅ Message sent to Telegram: {preview_msg}")
-            return True
+            return TelegramSendResult(success=True)
 
         details = build_response_details(response, result)
         retry_after = result.get("parameters", {}).get("retry_after")
         if response.status_code == 429 and retry_after:
             log.warning("❌ Telegram rate limit hit. Retry after %s second(s): %s", retry_after, details)
-            return False
+            return TelegramSendResult(success=False, retry_after=int(retry_after))
 
         log.error("❌ Failed to send Telegram message (status=%s): %s", response.status_code, details)
-        return False
+        return TelegramSendResult(success=False)
     except requests.Timeout:
         log.error("❌ Telegram request timed out after %s second(s).", HTTP_TIMEOUT_SECONDS)
-        return False
+        return TelegramSendResult(success=False)
     except requests.RequestException as exc:
         log.error("❌ Telegram request failed: %s", exc)
-        return False
+        return TelegramSendResult(success=False)
+
+
+def send_to_telegram(message: str, preview: bool = False) -> bool:
+    return send_to_telegram_result(message, preview=preview).success
 
 
 def send_error_alert(error_msg: str) -> bool:
