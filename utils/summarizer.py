@@ -1,3 +1,4 @@
+import logging
 import warnings
 import re
 from html import unescape
@@ -7,6 +8,8 @@ warnings.filterwarnings("ignore", category=UserWarning, module="scipy")
 from sumy.parsers.plaintext import PlaintextParser
 from sumy.nlp.tokenizers import Tokenizer
 from sumy.summarizers.lsa import LsaSummarizer
+
+log = logging.getLogger("cron_push_logger")
 
 SUPPORTED_LANGUAGES = {"english", "french"}
 
@@ -71,8 +74,8 @@ def generate_summary(
         deduped = deduplicate_sentences(filtered)
         if deduped:
             return " ".join(deduped[:max_sentences])
-    except Exception:
-        pass
+    except Exception as exc:
+        log.warning("Sumy summarization failed, using fallback summary: %s", exc)
 
     fallback = build_fallback_summary(title_clean, description_clean, max_sentences)
     return fallback or title_clean
