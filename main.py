@@ -2,7 +2,7 @@ import time
 from collections import defaultdict
 
 from config import MAX_MESSAGES_PER_MINUTE, MAX_MESSAGES_PER_SOURCE
-from database.db import find_sent_urls, mark_article_as_sent, setup_table
+from database.db import find_sent_urls, get_db_connection, mark_articles_as_sent, setup_table
 from sources.catalog import SOURCE_EMOJI_MAP, TARGET_SOURCE_KEYS
 from sources.reddit_fetcher import fetch_reddit_posts
 from sources.rss_fetcher import fetch_rss_articles
@@ -47,49 +47,55 @@ def send_pending_articles():
         log.info("No articles fetched.")
         return 0
 
-    sent_urls = find_sent_urls(article.get("link", "") for article in articles)
-    source_map = group_articles_by_source(articles)
-    sent_count = 0
-    global_count = 0
+    with get_db_connection() as conn:
+        sent_urls = find_sent_urls((article.get("link", "") for article in articles), conn=conn)
+        source_map = group_articles_by_source(articles)
+        sent_count = 0
+        global_count = 0
 
-    for source_key in TARGET_SOURCE_KEYS:
-        group = source_map.get(source_key, [])
-        if not group:
-            continue
-
-        source_label = group[0].get("source_label", source_key)
-        source_count = 0
-
-        for article in group:
-            url = (article.get("link") or "").strip()
-            if not url or url in sent_urls:
+        for source_key in TARGET_SOURCE_KEYS:
+            group = source_map.get(source_key, [])
+            if not group:
                 continue
 
-            if source_count >= MAX_MESSAGES_PER_SOURCE:
-                log.info("Per-source limit reached for %s.", source_label)
-                break
+            source_label = group[0].get("source_label", source_key)
+            source_count = 0
+            source_sent_urls = []
 
-            message = build_article_message(article)
-            if not message:
-                log.info("Skipped article with empty message: %s", url)
-                continue
+            for article in group:
+                url = (article.get("link") or "").strip()
+                if not url or url in sent_urls:
+                    continue
 
-            if send_to_telegram(message, preview=True):
-                mark_article_as_sent(url)
-                sent_urls.add(url)
-                sent_count += 1
-                source_count += 1
-                global_count += 1
+                if source_count >= MAX_MESSAGES_PER_SOURCE:
+                    log.info("Per-source limit reached for %s.", source_label)
+                    break
 
-            time.sleep(1)
+                message = build_article_message(article)
+                if not message:
+                    log.info("Skipped article with empty message: %s", url)
+                    continue
 
-            if global_count >= MAX_MESSAGES_PER_MINUTE:
-                log.info("Global rate limit reached, sleeping for 60 seconds.")
-                time.sleep(60)
-                global_count = 0
+                if send_to_telegram(message, preview=True):
+                    source_sent_urls.append(url)
+                    sent_urls.add(url)
+                    sent_count += 1
+                    source_count += 1
+                    global_count += 1
 
-        log.info("Processed source %s: %s new article(s) sent.", source_label, source_count)
-        time.sleep(10)
+                time.sleep(1)
+
+                if global_count >= MAX_MESSAGES_PER_MINUTE:
+                    log.info("Global rate limit reached, sleeping for 60 seconds.")
+                    time.sleep(60)
+                    global_count = 0
+
+            if source_sent_urls:
+                mark_articles_as_sent(source_sent_urls, conn=conn)
+                conn.commit()
+
+            log.info("Processed source %s: %s new article(s) sent.", source_label, source_count)
+            time.sleep(10)
 
     log.info("Sent %s new articles to Telegram.", sent_count)
     return sent_count
