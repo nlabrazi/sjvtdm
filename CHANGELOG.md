@@ -1,8 +1,16 @@
 # Changelog
 
-## [Unreleased] - 2026-03-08
+## [Unreleased]
+
+### Added
+- génération de résumés français via Gemini URL Context, sans modèle local
+- configuration du modèle, du timeout et de la longueur maximale des résumés
+- suite de tests unitaires versionnée et workflow d’intégration continue
 
 ### Changed
+- détection et nouvelle tentative lorsque Gemini recopie le titre ou la preview RSS
+- fallback automatique vers le résumé extractif existant en cas d’indisponibilité
+- utilisation des options modernes de preview Telegram avec grand média
 - centralisation du chargement de configuration et des variables d’environnement
 - refactor de `main.py` avec point d’entrée explicite et moins d’effets de bord
 - utilisation de clés de sources stables pour éviter la logique basée sur les titres distants

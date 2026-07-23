@@ -1,10 +1,13 @@
+import json
 from dataclasses import dataclass
-import requests
 from html import escape
 from urllib.parse import urlparse
 
+import requests
+
 from config import HTTP_TIMEOUT_SECONDS, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
 from utils.logger import setup_logger
+
 
 BOT_TOKEN = TELEGRAM_BOT_TOKEN
 CHAT_ID = TELEGRAM_CHAT_ID
@@ -23,17 +26,38 @@ def escape_html(text: str) -> str:
     return escape(text)
 
 
-def sanitize_url(url: str) -> str:
+def is_valid_url(url: str) -> bool:
     candidate = (url or "").strip()
     if not candidate:
-        return ""
-
+        return False
     parsed = urlparse(candidate)
-    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-        log.warning("Skipping invalid article URL: %s", candidate)
-        return ""
+    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
 
+
+def sanitize_url(url: str) -> str:
+    candidate = (url or "").strip()
+    if not is_valid_url(candidate):
+        if candidate:
+            log.warning("Skipping invalid article URL: %s", candidate)
+        return ""
     return escape(candidate, quote=True)
+
+
+def build_link_preview_options(preview: bool, url: str = "") -> dict:
+    if not preview:
+        return {"is_disabled": True}
+
+    options = {"is_disabled": False}
+    candidate = (url or "").strip()
+    if is_valid_url(candidate):
+        options.update(
+            {
+                "url": candidate,
+                "prefer_large_media": True,
+                "show_above_text": False,
+            }
+        )
+    return options
 
 
 def parse_json_response(response: requests.Response) -> dict:
@@ -41,11 +65,7 @@ def parse_json_response(response: requests.Response) -> dict:
         parsed = response.json()
     except ValueError:
         return {}
-
-    if isinstance(parsed, dict):
-        return parsed
-
-    return {}
+    return parsed if isinstance(parsed, dict) else {}
 
 
 def build_response_details(response: requests.Response, result: dict) -> str:
@@ -56,11 +76,14 @@ def build_response_details(response: requests.Response, result: dict) -> str:
     body = (response.text or "").strip()
     if body:
         return body[:200]
-
     return f"HTTP {response.status_code}"
 
 
-def send_to_telegram_result(message: str, preview: bool = False) -> TelegramSendResult:
+def send_to_telegram_result(
+    message: str,
+    preview: bool = False,
+    preview_url: str = "",
+) -> TelegramSendResult:
     if not BOT_TOKEN or not CHAT_ID:
         log.error("❌ Missing BOT_TOKEN or CHAT_ID in .env file.")
         return TelegramSendResult(success=False)
@@ -69,7 +92,9 @@ def send_to_telegram_result(message: str, preview: bool = False) -> TelegramSend
         "chat_id": CHAT_ID,
         "text": message,
         "parse_mode": "HTML",
-        "disable_web_page_preview": not preview
+        "link_preview_options": json.dumps(
+            build_link_preview_options(preview=preview, url=preview_url)
+        ),
     }
 
     try:
@@ -81,16 +106,24 @@ def send_to_telegram_result(message: str, preview: bool = False) -> TelegramSend
         result = parse_json_response(response)
         if response.status_code == 200 and result.get("ok"):
             preview_msg = message.replace("\n", " ")[:100] + "..." if len(message) > 100 else message
-            log.info(f"✅ Message sent to Telegram: {preview_msg}")
+            log.info("✅ Message sent to Telegram: %s", preview_msg)
             return TelegramSendResult(success=True)
 
         details = build_response_details(response, result)
         retry_after = result.get("parameters", {}).get("retry_after")
         if response.status_code == 429 and retry_after:
-            log.warning("❌ Telegram rate limit hit. Retry after %s second(s): %s", retry_after, details)
+            log.warning(
+                "❌ Telegram rate limit hit. Retry after %s second(s): %s",
+                retry_after,
+                details,
+            )
             return TelegramSendResult(success=False, retry_after=int(retry_after))
 
-        log.error("❌ Failed to send Telegram message (status=%s): %s", response.status_code, details)
+        log.error(
+            "❌ Failed to send Telegram message (status=%s): %s",
+            response.status_code,
+            details,
+        )
         return TelegramSendResult(success=False)
     except requests.Timeout:
         log.error("❌ Telegram request timed out after %s second(s).", HTTP_TIMEOUT_SECONDS)
@@ -100,8 +133,12 @@ def send_to_telegram_result(message: str, preview: bool = False) -> TelegramSend
         return TelegramSendResult(success=False)
 
 
-def send_to_telegram(message: str, preview: bool = False) -> bool:
-    return send_to_telegram_result(message, preview=preview).success
+def send_to_telegram(message: str, preview: bool = False, preview_url: str = "") -> bool:
+    return send_to_telegram_result(
+        message,
+        preview=preview,
+        preview_url=preview_url,
+    ).success
 
 
 def send_error_alert(error_msg: str) -> bool:
@@ -114,11 +151,7 @@ def build_message(emoji: str, summary: str, url: str) -> str:
     if not summary_clean:
         return ""
 
-    if emoji:
-        summary_line = f"{emoji} {summary_clean}"
-    else:
-        summary_line = summary_clean
-
+    summary_line = f"{emoji} {summary_clean}" if emoji else summary_clean
     safe_url = sanitize_url(url)
     if not safe_url:
         return summary_line

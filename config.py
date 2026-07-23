@@ -18,6 +18,11 @@ HTTP_USER_AGENT = os.getenv("HTTP_USER_AGENT", "sjvtdm/1.0")
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
+GEMINI_TIMEOUT_SECONDS = float(os.getenv("GEMINI_TIMEOUT_SECONDS", "20"))
+SUMMARY_MAX_CHARACTERS = int(os.getenv("SUMMARY_MAX_CHARACTERS", "320"))
+
 
 def get_database_connection_kwargs() -> dict[str, object]:
     database_url = os.getenv("DATABASE_URL")
