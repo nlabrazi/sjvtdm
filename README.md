@@ -68,8 +68,9 @@
 A Telegram bot that automatically centralizes relevant news and updates from RSS feeds and Reddit into a personal or private Telegram channel.
 
 - 📰 Collects fresh articles from sources like Polygon, Reddit, gHacks, HackerNoon, and Les Numeriques (`sources/*.py`)
-- ✂️ Generates concise, 2-sentence summaries with smart anti-duplicate logic (`utils/summarizer.py`)
-- 📤 Sends structured Telegram messages from `main.py`
+- ✂️ Generates concise French summaries from the complete article URL with Gemini URL Context
+- 🛟 Falls back to the local extractive summary when Gemini is unavailable
+- 📤 Sends structured Telegram messages with native link previews (`main.py`)
 - 🧹 Cleans up outdated entries to keep your feed sharp and relevant (`utils/clean_bot_data.py`)
 
 ---
@@ -79,10 +80,34 @@ A Telegram bot that automatically centralizes relevant news and updates from RSS
 - 🔁 Fetch news via RSS feeds
 - 📥 Aggregate Reddit content
 - 🧠 Deduplicate already sent URLs with PostgreSQL
+- ✍️ Retry remotely generated summaries when they duplicate the source preview
 - 📤 Automatically post grouped content to Telegram
+- ⏳ Retry Telegram sends after rate limiting
 - ⏱️ Run locally for development and testing
 - 🖥️ Run in production on a VPS, typically via cron
 - 📜 Keep separate logs for push, cleanup, and Telegram sends
+
+---
+
+### 🧭 Article pipeline
+
+```text
+RSS / Reddit URL
+      ↓
+Gemini URL Context
+      ↓
+French brief (1–2 sentences, 320 characters by default)
+      ↓
+Telegram native link preview and Instant View when supported
+```
+
+Gemini receives the public article URL and reads it remotely. No local language
+model or article extraction service is required. If the API key is absent, the
+quota is exhausted, the page is inaccessible, or the generated text duplicates
+the feed preview, the bot automatically uses its local fallback.
+
+Telegram controls Instant View availability. The bot explicitly selects the
+article URL for the preview and requests a large media card.
 
 ---
 
@@ -132,11 +157,33 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
+Create a free Gemini API key in Google AI Studio, then set at least:
+
+```dotenv
+GEMINI_API_KEY=your_api_key
+TELEGRAM_BOT_TOKEN=your_bot_token
+TELEGRAM_CHAT_ID=your_chat_id
+```
+
+Optional summary settings:
+
+```dotenv
+GEMINI_MODEL=gemini-2.5-flash-lite
+GEMINI_TIMEOUT_SECONDS=20
+SUMMARY_MAX_CHARACTERS=320
+```
+
 For local runs:
 
 ```bash
-python main.py
-python utils/clean_bot_data.py
+RUN_MODE=bot ./start.sh
+RUN_MODE=clean ./start.sh
+```
+
+Run the test suite:
+
+```bash
+python3 -m unittest discover -s tests -v
 ```
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>

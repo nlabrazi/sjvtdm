@@ -1,14 +1,22 @@
 import time
 from collections import defaultdict
 
-from config import MAX_MESSAGES_PER_MINUTE, MAX_MESSAGES_PER_SOURCE
+from config import (
+    GEMINI_API_KEY,
+    GEMINI_MODEL,
+    GEMINI_TIMEOUT_SECONDS,
+    MAX_MESSAGES_PER_MINUTE,
+    MAX_MESSAGES_PER_SOURCE,
+    SUMMARY_MAX_CHARACTERS,
+)
 from database.db import find_sent_urls, get_db_connection, mark_articles_as_sent, setup_table
 from sources.catalog import SOURCE_EMOJI_MAP, TARGET_SOURCE_KEYS
 from sources.reddit_fetcher import fetch_reddit_posts
 from sources.rss_fetcher import fetch_rss_articles
 from telegram.notifier import build_message, escape_html, send_to_telegram_result
+from utils.gemini_client import GeminiSummaryClient
 from utils.logger import setup_logger
-from utils.summarizer import generate_summary
+from utils.summarizer import generate_article_summary
 
 
 log = setup_logger("cron_push_logger", "cron_push.log")
@@ -27,22 +35,32 @@ def group_articles_by_source(articles):
     return grouped_articles
 
 
-def build_article_message(article):
+def build_article_message(article, gemini_client=None):
     title = article.get("title", "")
     description = article.get("description") or title
-    summary_raw = generate_summary(
-        title,
-        description,
-        max_sentences=2,
+    summary_raw = generate_article_summary(
+        title=title,
+        description=description,
+        url=article.get("link", ""),
         language=article.get("language", "english"),
+        max_characters=SUMMARY_MAX_CHARACTERS,
+        gemini_client=gemini_client,
     )
     summary = escape_html(summary_raw)
     emoji = SOURCE_EMOJI_MAP.get(article.get("source_key", ""), "")
     return build_message(emoji, summary, article.get("link", ""))
 
 
-def send_article_message(message: str, preview: bool = True) -> tuple[bool, int | None]:
-    send_result = send_to_telegram_result(message, preview=preview)
+def send_article_message(
+    message: str,
+    preview: bool = True,
+    preview_url: str = "",
+) -> tuple[bool, int | None]:
+    send_result = send_to_telegram_result(
+        message,
+        preview=preview,
+        preview_url=preview_url,
+    )
     if send_result.success:
         return True, None
 
@@ -50,7 +68,11 @@ def send_article_message(message: str, preview: bool = True) -> tuple[bool, int 
         wait_seconds = max(1, send_result.retry_after)
         log.info("Retrying current Telegram message after %s second(s).", wait_seconds)
         time.sleep(wait_seconds)
-        retry_result = send_to_telegram_result(message, preview=preview)
+        retry_result = send_to_telegram_result(
+            message,
+            preview=preview,
+            preview_url=preview_url,
+        )
         return retry_result.success, wait_seconds
 
     return False, None
@@ -62,11 +84,20 @@ def send_pending_articles():
         log.info("No articles fetched.")
         return 0
 
+    source_map = group_articles_by_source(articles)
+    gemini_client = GeminiSummaryClient(
+        api_key=GEMINI_API_KEY,
+        model=GEMINI_MODEL,
+        timeout_seconds=GEMINI_TIMEOUT_SECONDS,
+    )
+    sent_count = 0
+    global_count = 0
+
     with get_db_connection() as conn:
-        sent_urls = find_sent_urls((article.get("link", "") for article in articles), conn=conn)
-        source_map = group_articles_by_source(articles)
-        sent_count = 0
-        global_count = 0
+        sent_urls = find_sent_urls(
+            (article.get("link", "") for article in articles),
+            conn=conn,
+        )
 
         for source_key in TARGET_SOURCE_KEYS:
             group = source_map.get(source_key, [])
@@ -86,12 +117,16 @@ def send_pending_articles():
                     log.info("Per-source limit reached for %s.", source_label)
                     break
 
-                message = build_article_message(article)
+                message = build_article_message(article, gemini_client=gemini_client)
                 if not message:
                     log.info("Skipped article with empty message: %s", url)
                     continue
 
-                send_succeeded, retry_wait = send_article_message(message, preview=True)
+                send_succeeded, retry_wait = send_article_message(
+                    message,
+                    preview=True,
+                    preview_url=url,
+                )
                 if retry_wait:
                     global_count = 0
 
