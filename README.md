@@ -65,23 +65,39 @@
 <!-- DESCRIPTION -->
 ### ℹ️ Description
 
-A Telegram bot that automatically centralizes relevant news and updates from various sources (Twitter, RSS feeds, etc.) into a personal or private Telegram channel.
+A Telegram bot that automatically centralizes relevant news from RSS feeds and Reddit into a personal or private Telegram channel.
 
 - 📰 Collects fresh articles from sources like Polygon, Reddit, and gHacks (`sources/*.py`)
-- ✂️ Generates concise, 2-sentence summaries with smart anti-duplicate logic (`summarizer.py`)
+- ✂️ Generates concise French summaries from the complete article URL with Gemini URL Context
+- 🛟 Falls back to the existing local extractive summary when Gemini is unavailable
 - 📤 Sends structured, enriched previews to Telegram 3 times a day (`main.py`)
 - 🧹 Cleans up outdated entries to keep your feed sharp and relevant (`clean_bot_data.py`)
 
 ---
 
-### 🚀 Planned Features
+### 🧭 Article pipeline
 
-- 🔁 Fetch news via RSS feeds
-- 📥 Aggregate Reddit content
-- 🧠 Deduplication to prevent reposts
-- 📤 Automatically post grouped content to Telegram
-- ⏱️ Scheduled jobs via cron (push at 8h, 16h, 00h and clean at 2h)
-- 📜 Detailed logs with separate files for push, cron, and Telegram bot
+```text
+RSS / Reddit URL
+      ↓
+Gemini URL Context
+      ↓
+French brief (1–2 sentences, 320 characters by default)
+      ↓
+Telegram native link preview and Instant View when supported
+```
+
+Gemini receives the public article URL and reads it remotely. No local language
+model or article extraction service is required. If the API key is absent, the
+quota is exhausted, the page is inaccessible, or the generated text duplicates
+the feed preview, the bot automatically uses its local fallback.
+
+Telegram controls Instant View availability. The bot explicitly selects the
+article URL for the preview and requests a large media card.
+
+The Railway schedules are expressed in UTC: `06:00`, `12:00`, and `18:00`.
+They correspond to `08:00`, `14:00`, and `20:00` in Paris during daylight
+saving time.
 
 ---
 
@@ -128,6 +144,29 @@ Below are installation instructions for a Python-based project.
 python -m venv venv
 source venv/bin/activate  # or .\venv\Scripts\activate (Windows)
 pip install -r requirements.txt
+cp .env.example .env
+```
+
+Create a free Gemini API key in Google AI Studio, then set at least:
+
+```dotenv
+GEMINI_API_KEY=your_api_key
+TELEGRAM_BOT_TOKEN=your_bot_token
+TELEGRAM_CHAT_ID=your_chat_id
+```
+
+Optional summary settings:
+
+```dotenv
+GEMINI_MODEL=gemini-2.5-flash-lite
+GEMINI_TIMEOUT_SECONDS=20
+SUMMARY_MAX_CHARACTERS=320
+```
+
+Run the test suite:
+
+```bash
+python3 -m unittest discover -s tests -v
 ```
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
