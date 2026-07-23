@@ -106,7 +106,7 @@ def send_pending_articles():
                 log.info("Skipped article with empty message: %s", url)
                 continue
 
-            if send_to_telegram(message, preview=True):
+            if send_to_telegram(message, preview=True, preview_url=url):
                 mark_article_as_sent(url)
                 sent_urls.add(url)
                 sent_count += 1

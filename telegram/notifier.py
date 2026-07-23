@@ -1,3 +1,4 @@
+import json
 import requests
 from html import escape
 from urllib.parse import urlparse
@@ -17,18 +18,39 @@ def escape_html(text: str) -> str:
 
 def sanitize_url(url: str) -> str:
     candidate = (url or "").strip()
-    if not candidate:
-        return ""
-
-    parsed = urlparse(candidate)
-    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+    if not is_valid_url(candidate):
         log.warning("Skipping invalid article URL: %s", candidate)
         return ""
 
     return escape(candidate, quote=True)
 
 
-def send_to_telegram(message: str, preview: bool = False) -> bool:
+def is_valid_url(url: str) -> bool:
+    candidate = (url or "").strip()
+    if not candidate:
+        return False
+    parsed = urlparse(candidate)
+    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
+
+
+def build_link_preview_options(preview: bool, url: str = "") -> dict:
+    if not preview:
+        return {"is_disabled": True}
+
+    options = {"is_disabled": False}
+    candidate = (url or "").strip()
+    if is_valid_url(candidate):
+        options.update(
+            {
+                "url": candidate,
+                "prefer_large_media": True,
+                "show_above_text": False,
+            }
+        )
+    return options
+
+
+def send_to_telegram(message: str, preview: bool = False, preview_url: str = "") -> bool:
     if not BOT_TOKEN or not CHAT_ID:
         log.error("❌ Missing BOT_TOKEN or CHAT_ID in .env file.")
         return False
@@ -37,7 +59,9 @@ def send_to_telegram(message: str, preview: bool = False) -> bool:
         "chat_id": CHAT_ID,
         "text": message,
         "parse_mode": "HTML",
-        "disable_web_page_preview": not preview
+        "link_preview_options": json.dumps(
+            build_link_preview_options(preview=preview, url=preview_url)
+        ),
     }
 
     try:

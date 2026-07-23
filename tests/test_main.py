@@ -33,5 +33,37 @@ class BuildArticleMessageTests(unittest.TestCase):
         )
 
 
+class SendPendingArticlesTests(unittest.TestCase):
+    def test_sends_explicit_article_url_to_telegram_preview(self):
+        article = {
+            "title": "A title",
+            "description": "Feed preview",
+            "link": "https://example.com/article",
+            "source_key": "hackernoon",
+            "source_label": "HackerNoon",
+            "language": "english",
+        }
+
+        with (
+            patch("main.collect_articles", return_value=[article]),
+            patch("main.find_sent_urls", return_value=set()),
+            patch("main.GeminiSummaryClient"),
+            patch("main.build_article_message", return_value="Message") as build,
+            patch("main.send_to_telegram", return_value=True) as send,
+            patch("main.mark_article_as_sent") as mark,
+            patch("main.time.sleep"),
+        ):
+            sent_count = main.send_pending_articles()
+
+        self.assertEqual(sent_count, 1)
+        build.assert_called_once()
+        send.assert_called_once_with(
+            "Message",
+            preview=True,
+            preview_url="https://example.com/article",
+        )
+        mark.assert_called_once_with("https://example.com/article")
+
+
 if __name__ == "__main__":
     unittest.main()
