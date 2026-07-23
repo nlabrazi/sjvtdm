@@ -79,6 +79,7 @@ class GeminiSummaryClient:
         title: str,
         excerpt: str = "",
         max_characters: int = 320,
+        rejected_summary: str = "",
     ) -> str:
         if not self.is_configured:
             raise GeminiSummaryError("Gemini API key is not configured.")
@@ -92,6 +93,11 @@ class GeminiSummaryClient:
             f"Titre : {title.strip()}\n"
             f"Extrait à ne pas recopier : {excerpt.strip()[:1000]}"
         )
+        if rejected_summary:
+            prompt += (
+                "\nUne première proposition était trop proche de l'extrait. "
+                f"Reformule-la complètement : {rejected_summary.strip()[:1000]}"
+            )
         request_payload = {
             "model": self.model,
             "input": prompt,

@@ -1,5 +1,7 @@
 import warnings
 import re
+import logging
+from difflib import SequenceMatcher
 from html import unescape
 
 warnings.filterwarnings("ignore", category=UserWarning, module="scipy")
@@ -8,7 +10,10 @@ from sumy.parsers.plaintext import PlaintextParser
 from sumy.nlp.tokenizers import Tokenizer
 from sumy.summarizers.lsa import LsaSummarizer
 
+from utils.gemini_client import GeminiSummaryError
+
 SUPPORTED_LANGUAGES = {"english", "french"}
+log = logging.getLogger("cron_push_logger")
 
 
 def clean_html(text: str | None) -> str:
@@ -76,3 +81,63 @@ def generate_summary(
 
     fallback = build_fallback_summary(title_clean, description_clean, max_sentences)
     return fallback or title_clean
+
+
+def normalize_for_comparison(text: str) -> str:
+    normalized = clean_html(text).lower()
+    return re.sub(r"[^\w]+", " ", normalized).strip()
+
+
+def summaries_are_too_similar(summary: str, reference: str) -> bool:
+    summary_normalized = normalize_for_comparison(summary)
+    reference_normalized = normalize_for_comparison(reference)
+    if not summary_normalized or not reference_normalized:
+        return False
+    if summary_normalized == reference_normalized:
+        return True
+    if len(summary_normalized) >= 60 and summary_normalized in reference_normalized:
+        return True
+    return SequenceMatcher(None, summary_normalized, reference_normalized).ratio() >= 0.88
+
+
+def generate_article_summary(
+    title: str,
+    description: str,
+    url: str,
+    language: str = "english",
+    max_characters: int = 320,
+    gemini_client=None,
+) -> str:
+    title_clean = clean_html(title)
+    description_clean = clean_html(description)
+
+    if gemini_client is not None and gemini_client.is_configured:
+        rejected_summary = ""
+        for attempt in range(2):
+            try:
+                generated = gemini_client.summarize_url(
+                    url=url,
+                    title=title_clean,
+                    excerpt=description_clean,
+                    max_characters=max_characters,
+                    rejected_summary=rejected_summary,
+                )
+            except GeminiSummaryError as exc:
+                log.warning("Gemini summary unavailable for %s: %s", url, exc)
+                break
+
+            duplicates_preview = summaries_are_too_similar(generated, description_clean)
+            duplicates_title = summaries_are_too_similar(generated, title_clean)
+            if not duplicates_preview and not duplicates_title:
+                return generated
+
+            if attempt == 0:
+                rejected_summary = generated
+                log.info("Retrying a summary too close to source metadata: %s", url)
+
+    return generate_summary(
+        title_clean,
+        description_clean,
+        max_sentences=2,
+        language=language,
+    )

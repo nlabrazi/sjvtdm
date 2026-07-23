@@ -1,13 +1,21 @@
 import time
 from collections import defaultdict
 
-from config import MAX_MESSAGES_PER_MINUTE, MAX_MESSAGES_PER_SOURCE
+from config import (
+    GEMINI_API_KEY,
+    GEMINI_MODEL,
+    GEMINI_TIMEOUT_SECONDS,
+    MAX_MESSAGES_PER_MINUTE,
+    MAX_MESSAGES_PER_SOURCE,
+    SUMMARY_MAX_CHARACTERS,
+)
 from database.db import find_sent_urls, mark_article_as_sent, setup_table
 from sources.reddit_fetcher import fetch_reddit_posts
 from sources.rss_fetcher import fetch_rss_articles
 from telegram.notifier import build_message, escape_html, send_to_telegram
+from utils.gemini_client import GeminiSummaryClient
 from utils.logger import setup_logger
-from utils.summarizer import generate_summary
+from utils.summarizer import generate_article_summary
 
 
 log = setup_logger("cron_push_logger", "cron_push.log")
@@ -44,14 +52,16 @@ def group_articles_by_source(articles):
     return grouped_articles
 
 
-def build_article_message(article):
+def build_article_message(article, gemini_client=None):
     title = article.get("title", "")
     description = article.get("description") or title
-    summary_raw = generate_summary(
-        title,
-        description,
-        max_sentences=2,
+    summary_raw = generate_article_summary(
+        title=title,
+        description=description,
+        url=article.get("link", ""),
         language=article.get("language", "english"),
+        max_characters=SUMMARY_MAX_CHARACTERS,
+        gemini_client=gemini_client,
     )
     summary = escape_html(summary_raw)
     emoji = SOURCE_EMOJI_MAP.get(article.get("source_key", ""), "")
@@ -66,6 +76,11 @@ def send_pending_articles():
 
     sent_urls = find_sent_urls(article.get("link", "") for article in articles)
     source_map = group_articles_by_source(articles)
+    gemini_client = GeminiSummaryClient(
+        api_key=GEMINI_API_KEY,
+        model=GEMINI_MODEL,
+        timeout_seconds=GEMINI_TIMEOUT_SECONDS,
+    )
     sent_count = 0
     global_count = 0
 
@@ -86,7 +101,7 @@ def send_pending_articles():
                 log.info("Per-source limit reached for %s.", source_label)
                 break
 
-            message = build_article_message(article)
+            message = build_article_message(article, gemini_client=gemini_client)
             if not message:
                 log.info("Skipped article with empty message: %s", url)
                 continue
