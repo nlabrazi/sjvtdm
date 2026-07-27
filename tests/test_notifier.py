@@ -39,34 +39,31 @@ class NotifierTests(unittest.TestCase):
 
         self.assertEqual(message, "🧠 A useful summary")
 
-    def test_build_link_preview_options_prefers_large_media(self):
-        options = notifier.build_link_preview_options(
-            preview=True,
-            url="https://example.com/article",
-        )
-
+    def test_build_photo_payload_uses_image_and_caption(self):
         self.assertEqual(
-            options,
+            notifier.build_photo_payload(
+                "Résumé avec lien",
+                "https://images.example/article.jpg",
+            ),
             {
-                "is_disabled": False,
-                "url": "https://example.com/article",
-                "prefer_large_media": True,
-                "show_above_text": False,
+                "chat_id": notifier.CHAT_ID,
+                "photo": "https://images.example/article.jpg",
+                "caption": "Résumé avec lien",
+                "parse_mode": "HTML",
+                "show_caption_above_media": True,
             },
         )
 
-    def test_build_link_preview_options_disables_preview(self):
-        self.assertEqual(
-            notifier.build_link_preview_options(
-                preview=False,
-                url="https://example.com/article",
-            ),
-            {"is_disabled": True},
-        )
+    def test_build_photo_payload_rejects_invalid_image_url(self):
+        with patch("telegram.notifier.log.warning") as warning:
+            payload = notifier.build_photo_payload("Résumé", "file:///tmp/image.jpg")
+
+        self.assertIsNone(payload)
+        warning.assert_called_once()
 
     @patch("telegram.notifier.BOT_TOKEN", "token")
     @patch("telegram.notifier.CHAT_ID", "chat")
-    def test_send_to_telegram_serializes_modern_preview_options(self):
+    def test_send_to_telegram_sends_remote_photo_with_caption(self):
         response = build_mock_response(
             status_code=200,
             json_data={"ok": True, "result": {"message_id": 1}},
@@ -75,22 +72,65 @@ class NotifierTests(unittest.TestCase):
         with patch("telegram.notifier.SESSION.post", return_value=response) as post:
             sent = notifier.send_to_telegram(
                 "Résumé",
-                preview=True,
-                preview_url="https://example.com/article?a=1&b=2",
+                image_url="https://images.example/article.jpg",
             )
 
         self.assertTrue(sent)
+        self.assertTrue(post.call_args.args[0].endswith("/sendPhoto"))
         payload = post.call_args.kwargs["data"]
-        self.assertNotIn("disable_web_page_preview", payload)
+        self.assertEqual(payload["photo"], "https://images.example/article.jpg")
+        self.assertEqual(payload["caption"], "Résumé")
+        self.assertTrue(payload["show_caption_above_media"])
+        self.assertNotIn("link_preview_options", payload)
+
+    @patch("telegram.notifier.BOT_TOKEN", "token")
+    @patch("telegram.notifier.CHAT_ID", "chat")
+    def test_send_to_telegram_without_image_disables_link_preview(self):
+        response = build_mock_response(
+            status_code=200,
+            json_data={"ok": True, "result": {"message_id": 1}},
+        )
+
+        with patch("telegram.notifier.SESSION.post", return_value=response) as post:
+            sent = notifier.send_to_telegram("Résumé")
+
+        self.assertTrue(sent)
+        self.assertTrue(post.call_args.args[0].endswith("/sendMessage"))
+        payload = post.call_args.kwargs["data"]
         self.assertEqual(
             json.loads(payload["link_preview_options"]),
-            {
-                "is_disabled": False,
-                "url": "https://example.com/article?a=1&b=2",
-                "prefer_large_media": True,
-                "show_above_text": False,
-            },
+            {"is_disabled": True},
         )
+
+    @patch("telegram.notifier.BOT_TOKEN", "token")
+    @patch("telegram.notifier.CHAT_ID", "chat")
+    def test_invalid_remote_photo_falls_back_to_text_message(self):
+        photo_error = build_mock_response(
+            status_code=400,
+            json_data={"ok": False, "description": "Bad Request: failed to get HTTP URL content"},
+        )
+        text_success = build_mock_response(
+            status_code=200,
+            json_data={"ok": True, "result": {"message_id": 1}},
+        )
+
+        with (
+            patch(
+                "telegram.notifier.SESSION.post",
+                side_effect=[photo_error, text_success],
+            ) as post,
+            patch("telegram.notifier.log.warning") as warning,
+        ):
+            result = notifier.send_to_telegram_result(
+                "Résumé",
+                image_url="https://images.example/unavailable.jpg",
+            )
+
+        self.assertTrue(result.success)
+        self.assertEqual(post.call_count, 2)
+        self.assertTrue(post.call_args_list[0].args[0].endswith("/sendPhoto"))
+        self.assertTrue(post.call_args_list[1].args[0].endswith("/sendMessage"))
+        warning.assert_called_once()
 
     @patch("telegram.notifier.BOT_TOKEN", "token")
     @patch("telegram.notifier.CHAT_ID", "chat")
@@ -109,6 +149,28 @@ class NotifierTests(unittest.TestCase):
 
         self.assertFalse(send_result.success)
         self.assertEqual(send_result.retry_after, 17)
+
+    @patch("telegram.notifier.BOT_TOKEN", "token")
+    @patch("telegram.notifier.CHAT_ID", "chat")
+    def test_photo_rate_limit_does_not_fall_back_to_text(self):
+        response = build_mock_response(
+            status_code=429,
+            json_data={
+                "ok": False,
+                "description": "Too Many Requests: retry later",
+                "parameters": {"retry_after": 17},
+            },
+        )
+
+        with patch("telegram.notifier.SESSION.post", return_value=response) as post:
+            result = notifier.send_to_telegram_result(
+                "Résumé",
+                image_url="https://images.example/article.jpg",
+            )
+
+        self.assertFalse(result.success)
+        self.assertEqual(result.retry_after, 17)
+        self.assertEqual(post.call_count, 1)
 
     @patch("telegram.notifier.BOT_TOKEN", "token")
     @patch("telegram.notifier.CHAT_ID", "chat")

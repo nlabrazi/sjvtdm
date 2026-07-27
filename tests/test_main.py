@@ -78,6 +78,7 @@ class MainTests(unittest.TestCase):
                 "description": "Desc one",
                 "language": "english",
                 "link": "https://example.com/one",
+                "image": "https://images.example/one.jpg",
             },
             {
                 "source_key": "polygon",
@@ -86,6 +87,7 @@ class MainTests(unittest.TestCase):
                 "description": "Desc two",
                 "language": "english",
                 "link": "https://example.com/two",
+                "image": "",
             },
             {
                 "source_key": "reddit_gaming",
@@ -94,6 +96,7 @@ class MainTests(unittest.TestCase):
                 "description": "Desc three",
                 "language": "english",
                 "link": "https://example.com/three",
+                "image": "https://images.example/three.jpg",
             },
         ]
 
@@ -112,9 +115,9 @@ class MainTests(unittest.TestCase):
         self.assertEqual(build.call_count, 3)
         send.assert_has_calls(
             [
-                call("message", preview=True, preview_url="https://example.com/one"),
-                call("message", preview=True, preview_url="https://example.com/two"),
-                call("message", preview=True, preview_url="https://example.com/three"),
+                call("message", image_url="https://images.example/one.jpg"),
+                call("message", image_url=""),
+                call("message", image_url="https://images.example/three.jpg"),
             ]
         )
         mark.assert_has_calls(
@@ -141,6 +144,7 @@ class MainTests(unittest.TestCase):
             "description": "Desc one",
             "language": "english",
             "link": "https://example.com/one",
+            "image": "https://images.example/one.jpg",
         }
 
         with (
@@ -165,13 +169,11 @@ class MainTests(unittest.TestCase):
             [
                 call(
                     "message",
-                    preview=True,
-                    preview_url="https://example.com/one",
+                    image_url="https://images.example/one.jpg",
                 ),
                 call(
                     "message",
-                    preview=True,
-                    preview_url="https://example.com/one",
+                    image_url="https://images.example/one.jpg",
                 ),
             ]
         )

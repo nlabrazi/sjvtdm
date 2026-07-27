@@ -55,13 +55,11 @@ def build_article_message(article, gemini_client=None):
 
 def send_article_message(
     message: str,
-    preview: bool = True,
-    preview_url: str = "",
+    image_url: str = "",
 ) -> tuple[bool, int | None]:
     send_result = send_to_telegram_result(
         message,
-        preview=preview,
-        preview_url=preview_url,
+        image_url=image_url,
     )
     if send_result.success:
         return True, None
@@ -72,8 +70,7 @@ def send_article_message(
         time.sleep(wait_seconds)
         retry_result = send_to_telegram_result(
             message,
-            preview=preview,
-            preview_url=preview_url,
+            image_url=image_url,
         )
         return retry_result.success, wait_seconds
 
@@ -126,8 +123,7 @@ def send_pending_articles():
 
                 send_succeeded, retry_wait = send_article_message(
                     message,
-                    preview=True,
-                    preview_url=url,
+                    image_url=article.get("image", ""),
                 )
                 if retry_wait:
                     global_count = 0
