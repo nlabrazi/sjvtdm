@@ -45,6 +45,8 @@ def build_article_message(article, gemini_client=None):
         language=article.get("language", "english"),
         max_characters=SUMMARY_MAX_CHARACTERS,
         gemini_client=gemini_client,
+        is_discussion=article.get("is_self_post", False),
+        comments=article.get("comments", []),
     )
     summary = escape_html(summary_raw)
     emoji = SOURCE_EMOJI_MAP.get(article.get("source_key", ""), "")

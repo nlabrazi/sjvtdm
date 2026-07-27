@@ -63,6 +63,8 @@ class MainTests(unittest.TestCase):
             language="english",
             max_characters=main.SUMMARY_MAX_CHARACTERS,
             gemini_client=gemini_client,
+            is_discussion=False,
+            comments=[],
         )
 
     @patch("main.time.sleep", return_value=None)
