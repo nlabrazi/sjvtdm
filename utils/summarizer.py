@@ -106,23 +106,39 @@ def generate_article_summary(
     description: str,
     url: str,
     language: str = "english",
-    max_characters: int = 320,
+    max_characters: int = 480,
     gemini_client=None,
+    is_discussion: bool = False,
+    comments: list[str] | None = None,
 ) -> str:
     title_clean = clean_html(title)
     description_clean = clean_html(description)
+    comments_clean = []
+    for comment in comments or []:
+        comment_clean = clean_html(comment)
+        if comment_clean:
+            comments_clean.append(comment_clean)
 
     if gemini_client is not None and gemini_client.is_configured:
         rejected_summary = ""
         for attempt in range(2):
             try:
-                generated = gemini_client.summarize_url(
-                    url=url,
-                    title=title_clean,
-                    excerpt=description_clean,
-                    max_characters=max_characters,
-                    rejected_summary=rejected_summary,
-                )
+                if is_discussion:
+                    generated = gemini_client.summarize_discussion(
+                        title=title_clean,
+                        body=description_clean,
+                        comments=comments_clean,
+                        max_characters=max_characters,
+                        rejected_summary=rejected_summary,
+                    )
+                else:
+                    generated = gemini_client.summarize_url(
+                        url=url,
+                        title=title_clean,
+                        excerpt=description_clean,
+                        max_characters=max_characters,
+                        rejected_summary=rejected_summary,
+                    )
             except GeminiSummaryError as exc:
                 log.warning("Gemini summary unavailable for %s: %s", url, exc)
                 break
@@ -136,9 +152,13 @@ def generate_article_summary(
                 rejected_summary = generated
                 log.info("Retrying a summary too close to source metadata: %s", url)
 
+    fallback_source = description_clean
+    if is_discussion and comments_clean:
+        fallback_source = " ".join([description_clean, *comments_clean])
+
     return generate_summary(
         title_clean,
-        description_clean,
-        max_sentences=2,
+        fallback_source,
+        max_sentences=3,
         language=language,
     )

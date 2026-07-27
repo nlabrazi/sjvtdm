@@ -41,7 +41,13 @@ class GeminiSummaryClientTests(unittest.TestCase):
                 {
                     "status": "completed",
                     "steps": [
-                        {"type": "url_context_result", "status": "success"},
+                        {
+                            "type": "url_context_result",
+                            "result": {
+                                "url": "https://example.com/article",
+                                "status": "success",
+                            },
+                        },
                         {
                             "type": "model_output",
                             "content": [
@@ -91,10 +97,45 @@ class GeminiSummaryClientTests(unittest.TestCase):
             client.summarize_url("https://example.com/article", "Title")
 
     def test_summarize_url_rejects_empty_model_output(self):
-        http_client = FakeHttpClient(FakeResponse({"status": "completed", "steps": []}))
+        http_client = FakeHttpClient(
+            FakeResponse(
+                {
+                    "status": "completed",
+                    "steps": [
+                        {"type": "url_context_result", "status": "success"},
+                    ],
+                }
+            )
+        )
         client = GeminiSummaryClient("secret-key", http_client=http_client)
 
         with self.assertRaisesRegex(GeminiSummaryError, "empty summary"):
+            client.summarize_url("https://example.com/article", "Title")
+
+    def test_summarize_url_rejects_unretrieved_article(self):
+        http_client = FakeHttpClient(
+            FakeResponse(
+                {
+                    "status": "completed",
+                    "steps": [
+                        {
+                            "type": "url_context_result",
+                            "result": {
+                                "url": "https://example.com/article",
+                                "status": "paywall",
+                            },
+                        },
+                        {
+                            "type": "model_output",
+                            "content": [{"type": "text", "text": "Résumé inventé"}],
+                        },
+                    ],
+                }
+            )
+        )
+        client = GeminiSummaryClient("secret-key", http_client=http_client)
+
+        with self.assertRaisesRegex(GeminiSummaryError, "could not retrieve"):
             client.summarize_url("https://example.com/article", "Title")
 
     def test_summarize_url_rejects_failed_interaction(self):
@@ -103,6 +144,45 @@ class GeminiSummaryClientTests(unittest.TestCase):
 
         with self.assertRaisesRegex(GeminiSummaryError, "did not complete"):
             client.summarize_url("https://example.com/article", "Title")
+
+    def test_summarize_discussion_uses_post_and_comments_without_url_context(self):
+        http_client = FakeHttpClient(
+            FakeResponse(
+                {
+                    "status": "completed",
+                    "steps": [
+                        {
+                            "type": "model_output",
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": (
+                                        "Un joueur partage son expérience et reçoit "
+                                        "plusieurs conseils bienveillants."
+                                    ),
+                                }
+                            ],
+                        }
+                    ],
+                }
+            )
+        )
+        client = GeminiSummaryClient("secret-key", http_client=http_client)
+
+        summary = client.summarize_discussion(
+            title="A personal story",
+            body="The author explains their situation.",
+            comments=["A detailed and supportive public reaction."],
+        )
+
+        self.assertIn("plusieurs conseils", summary)
+        request_payload = http_client.calls[0][1]["json"]
+        self.assertNotIn("tools", request_payload)
+        self.assertIn("The author explains their situation.", request_payload["input"])
+        self.assertIn(
+            "A detailed and supportive public reaction.",
+            request_payload["input"],
+        )
 
 
 class SummaryCleaningTests(unittest.TestCase):

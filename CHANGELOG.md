@@ -4,13 +4,19 @@
 
 ### Added
 - génération de résumés français via Gemini URL Context, sans modèle local
+- synthèse des self-posts Reddit à partir de leur contenu et de commentaires publics pertinents
+- envoi des images distantes avec `sendPhoto` sans transit des fichiers par le VPS
 - configuration du modèle, du timeout et de la longueur maximale des résumés
 - suite de tests unitaires versionnée et workflow d’intégration continue
 
 ### Changed
+- suivi de l’URL éditoriale originale pour les posts Reddit externes
+- vérification du succès de URL Context avant d’accepter un résumé d’article
+- résumés portés à deux ou trois phrases et 480 caractères par défaut
 - détection et nouvelle tentative lorsque Gemini recopie le titre ou la preview RSS
 - fallback automatique vers le résumé extractif existant en cas d’indisponibilité
-- utilisation des options modernes de preview Telegram avec grand média
+- remplacement des previews Telegram redondantes par une photo et sa légende
+- fallback vers un message texte sans preview lorsque Telegram refuse une image distante
 - centralisation du chargement de configuration et des variables d’environnement
 - refactor de `main.py` avec point d’entrée explicite et moins d’effets de bord
 - utilisation de clés de sources stables pour éviter la logique basée sur les titres distants

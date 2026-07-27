@@ -12,7 +12,14 @@ class FakeGeminiClient:
         self.calls = []
 
     def summarize_url(self, **kwargs):
-        self.calls.append(kwargs)
+        self.calls.append(("url", kwargs))
+        response = self.responses.pop(0)
+        if isinstance(response, Exception):
+            raise response
+        return response
+
+    def summarize_discussion(self, **kwargs):
+        self.calls.append(("discussion", kwargs))
         response = self.responses.pop(0)
         if isinstance(response, Exception):
             raise response
@@ -82,6 +89,7 @@ class ArticleSummaryTests(unittest.TestCase):
             "pour absorber les pics.",
         )
         self.assertEqual(len(client.calls), 1)
+        self.assertEqual(client.calls[0][0], "url")
 
     def test_retries_once_when_first_summary_duplicates_preview(self):
         duplicate = "Patreon addressed a critical scalability issue."
@@ -99,7 +107,58 @@ class ArticleSummaryTests(unittest.TestCase):
 
         self.assertEqual(summary, rewritten)
         self.assertEqual(len(client.calls), 2)
-        self.assertEqual(client.calls[1]["rejected_summary"], duplicate)
+        self.assertEqual(client.calls[1][1]["rejected_summary"], duplicate)
+
+    def test_summarizes_reddit_discussion_from_post_and_comments(self):
+        client = FakeGeminiClient(
+            [
+                (
+                    "Un joueur raconte une période difficile durant laquelle Final Fantasy "
+                    "l'aide à retrouver du réconfort. Les réponses lui témoignent leur soutien."
+                )
+            ]
+        )
+
+        summary = summarizer.generate_article_summary(
+            title="Final Fantasy is making me happy again",
+            description="The author explains how the game helps after a breakup.",
+            url="https://www.reddit.com/r/gaming/comments/example",
+            gemini_client=client,
+            is_discussion=True,
+            comments=["A supportive comment with a personal recommendation."],
+        )
+
+        self.assertIn("témoignent leur soutien", summary)
+        call_type, call_args = client.calls[0]
+        self.assertEqual(call_type, "discussion")
+        self.assertEqual(
+            call_args["comments"],
+            ["A supportive comment with a personal recommendation."],
+        )
+
+    def test_discussion_fallback_includes_comments(self):
+        client = FakeGeminiClient([GeminiSummaryError("quota exceeded")])
+
+        with patch(
+            "utils.summarizer.generate_summary",
+            return_value="Résumé local de la discussion",
+        ) as fallback:
+            summary = summarizer.generate_article_summary(
+                title="Discussion title",
+                description="Original post body.",
+                url="https://www.reddit.com/r/gaming/comments/example",
+                gemini_client=client,
+                is_discussion=True,
+                comments=["A substantive public comment with useful context."],
+            )
+
+        self.assertEqual(summary, "Résumé local de la discussion")
+        fallback.assert_called_once_with(
+            "Discussion title",
+            "Original post body. A substantive public comment with useful context.",
+            max_sentences=3,
+            language="english",
+        )
 
     def test_falls_back_to_existing_summarizer_on_api_error(self):
         client = FakeGeminiClient([GeminiSummaryError("quota exceeded")])
