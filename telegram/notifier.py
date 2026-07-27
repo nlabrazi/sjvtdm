@@ -20,6 +20,7 @@ log = setup_logger("bot_logger", "bot.log")
 class TelegramSendResult:
     success: bool
     retry_after: int | None = None
+    can_fallback_to_text: bool = False
 
 
 def escape_html(text: str) -> str:
@@ -43,23 +44,6 @@ def sanitize_url(url: str) -> str:
     return escape(candidate, quote=True)
 
 
-def build_link_preview_options(preview: bool, url: str = "") -> dict:
-    if not preview:
-        return {"is_disabled": True}
-
-    options = {"is_disabled": False}
-    candidate = (url or "").strip()
-    if is_valid_url(candidate):
-        options.update(
-            {
-                "url": candidate,
-                "prefer_large_media": True,
-                "show_above_text": False,
-            }
-        )
-    return options
-
-
 def parse_json_response(response: requests.Response) -> dict:
     try:
         parsed = response.json()
@@ -79,34 +63,42 @@ def build_response_details(response: requests.Response, result: dict) -> str:
     return f"HTTP {response.status_code}"
 
 
-def send_to_telegram_result(
-    message: str,
-    preview: bool = False,
-    preview_url: str = "",
-) -> TelegramSendResult:
-    if not BOT_TOKEN or not CHAT_ID:
-        log.error("❌ Missing BOT_TOKEN or CHAT_ID in .env file.")
-        return TelegramSendResult(success=False)
-
-    payload = {
+def build_text_payload(message: str) -> dict:
+    return {
         "chat_id": CHAT_ID,
         "text": message,
         "parse_mode": "HTML",
-        "link_preview_options": json.dumps(
-            build_link_preview_options(preview=preview, url=preview_url)
-        ),
+        "link_preview_options": json.dumps({"is_disabled": True}),
     }
 
+
+def build_photo_payload(message: str, image_url: str) -> dict | None:
+    candidate = (image_url or "").strip()
+    if not is_valid_url(candidate):
+        if candidate:
+            log.warning("Skipping invalid article image URL: %s", candidate)
+        return None
+
+    return {
+        "chat_id": CHAT_ID,
+        "photo": candidate,
+        "caption": message,
+        "parse_mode": "HTML",
+        "show_caption_above_media": True,
+    }
+
+
+def post_to_telegram(method: str, payload: dict, message: str) -> TelegramSendResult:
     try:
         response = SESSION.post(
-            f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
+            f"https://api.telegram.org/bot{BOT_TOKEN}/{method}",
             data=payload,
             timeout=HTTP_TIMEOUT_SECONDS,
         )
         result = parse_json_response(response)
         if response.status_code == 200 and result.get("ok"):
             preview_msg = message.replace("\n", " ")[:100] + "..." if len(message) > 100 else message
-            log.info("✅ Message sent to Telegram: %s", preview_msg)
+            log.info("✅ Telegram %s succeeded: %s", method, preview_msg)
             return TelegramSendResult(success=True)
 
         details = build_response_details(response, result)
@@ -120,11 +112,15 @@ def send_to_telegram_result(
             return TelegramSendResult(success=False, retry_after=int(retry_after))
 
         log.error(
-            "❌ Failed to send Telegram message (status=%s): %s",
+            "❌ Telegram %s failed (status=%s): %s",
+            method,
             response.status_code,
             details,
         )
-        return TelegramSendResult(success=False)
+        return TelegramSendResult(
+            success=False,
+            can_fallback_to_text=method == "sendPhoto" and response.status_code == 400,
+        )
     except requests.Timeout:
         log.error("❌ Telegram request timed out after %s second(s).", HTTP_TIMEOUT_SECONDS)
         return TelegramSendResult(success=False)
@@ -133,17 +129,38 @@ def send_to_telegram_result(
         return TelegramSendResult(success=False)
 
 
-def send_to_telegram(message: str, preview: bool = False, preview_url: str = "") -> bool:
+def send_to_telegram_result(
+    message: str,
+    image_url: str = "",
+) -> TelegramSendResult:
+    if not BOT_TOKEN or not CHAT_ID:
+        log.error("❌ Missing BOT_TOKEN or CHAT_ID in .env file.")
+        return TelegramSendResult(success=False)
+
+    photo_payload = build_photo_payload(message, image_url)
+    if photo_payload is not None:
+        photo_result = post_to_telegram("sendPhoto", photo_payload, message)
+        if (
+            photo_result.success
+            or photo_result.retry_after
+            or not photo_result.can_fallback_to_text
+        ):
+            return photo_result
+        log.warning("Photo delivery failed; retrying the article as text.")
+
+    return post_to_telegram("sendMessage", build_text_payload(message), message)
+
+
+def send_to_telegram(message: str, image_url: str = "") -> bool:
     return send_to_telegram_result(
         message,
-        preview=preview,
-        preview_url=preview_url,
+        image_url=image_url,
     ).success
 
 
 def send_error_alert(error_msg: str) -> bool:
     alert = f"<b>SJVTDM Error Alert</b>\n<pre>{escape_html(error_msg)}</pre>"
-    return send_to_telegram(alert, preview=False)
+    return send_to_telegram(alert)
 
 
 def build_message(emoji: str, summary: str, url: str) -> str:

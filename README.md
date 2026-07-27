@@ -69,8 +69,9 @@ A Telegram bot that automatically centralizes relevant news and updates from RSS
 
 - 📰 Collects fresh articles from sources like Polygon, Reddit, gHacks, HackerNoon, and Les Numeriques (`sources/*.py`)
 - ✂️ Generates concise French summaries from the complete article URL with Gemini URL Context
+- 💬 Synthesizes Reddit self-posts with up to five substantive public comments
 - 🛟 Falls back to the local extractive summary when Gemini is unavailable
-- 📤 Sends structured Telegram messages with native link previews (`main.py`)
+- 🖼️ Sends the source image as a Telegram photo with the summary and article link
 - 🧹 Cleans up outdated entries to keep your feed sharp and relevant (`utils/clean_bot_data.py`)
 
 ---
@@ -79,9 +80,12 @@ A Telegram bot that automatically centralizes relevant news and updates from RSS
 
 - 🔁 Fetch news via RSS feeds
 - 📥 Aggregate Reddit content
+- 🔗 Follow external Reddit posts to their original articles
 - 🧠 Deduplicate already sent URLs with PostgreSQL
+- ✅ Reject Gemini article summaries when URL retrieval is not confirmed
 - ✍️ Retry remotely generated summaries when they duplicate the source preview
 - 📤 Automatically post grouped content to Telegram
+- 🛟 Fall back to a text-only message when Telegram rejects a remote image
 - ⏳ Retry Telegram sends after rate limiting
 - ⏱️ Run locally for development and testing
 - 🖥️ Run in production on a VPS, typically via cron
@@ -92,22 +96,31 @@ A Telegram bot that automatically centralizes relevant news and updates from RSS
 ### 🧭 Article pipeline
 
 ```text
-RSS / Reddit URL
-      ↓
-Gemini URL Context
-      ↓
-French brief (1–2 sentences, 320 characters by default)
-      ↓
-Telegram native link preview and Instant View when supported
+RSS article ───────────────→ verified Gemini URL Context ─┐
+Reddit external post ──────→ original article URL ────────┤
+Reddit self-post + comments ─→ Gemini text synthesis ─────┤
+                                                          ↓
+                                    French brief (2–3 sentences,
+                                      480 characters by default)
+                                                          ↓
+                             Telegram photo + summary + article link
 ```
 
 Gemini receives the public article URL and reads it remotely. No local language
-model or article extraction service is required. If the API key is absent, the
-quota is exhausted, the page is inaccessible, or the generated text duplicates
-the feed preview, the bot automatically uses its local fallback.
+model or article extraction service is required. The bot verifies that URL
+Context successfully retrieved the page before accepting an article summary.
+If the API key is absent, the quota is exhausted, the page is inaccessible, or
+the generated text duplicates the feed preview, the bot automatically uses its
+local fallback.
 
-Telegram controls Instant View availability. The bot explicitly selects the
-article URL for the preview and requests a large media card.
+For Reddit self-posts, the bot sends the publication and up to five substantive
+public comments directly to Gemini. For external Reddit posts, it summarizes
+the linked publisher article instead of the Reddit metadata.
+
+Images are passed to Telegram by public URL, so the VPS does not download or
+upload the media itself. Telegram link previews are disabled to avoid repeating
+the article title and description. If Telegram explicitly rejects an image, the
+bot retries the article as a text-only message.
 
 ---
 
@@ -170,7 +183,7 @@ Optional summary settings:
 ```dotenv
 GEMINI_MODEL=gemini-2.5-flash-lite
 GEMINI_TIMEOUT_SECONDS=20
-SUMMARY_MAX_CHARACTERS=320
+SUMMARY_MAX_CHARACTERS=480
 ```
 
 For local runs:
