@@ -12,6 +12,7 @@ from sources.catalog import REDDIT_SOURCE_CONFIGS
 log = logging.getLogger("cron_push_logger")
 REDDIT_BASE_URL = "https://www.reddit.com"
 IGNORED_COMMENT_BODIES = {"[deleted]", "[removed]"}
+IMAGE_FILE_EXTENSIONS = {".avif", ".gif", ".jpeg", ".jpg", ".png", ".webp"}
 
 
 def get_reddit_client():
@@ -34,18 +35,76 @@ def is_public_http_url(url):
     return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
 
 
+def normalize_image_url(url):
+    candidate = unescape(url).strip() if isinstance(url, str) else ""
+    return candidate if is_public_http_url(candidate) else None
+
+
+def get_gallery_image(submission):
+    gallery_data = getattr(submission, "gallery_data", None)
+    media_metadata = getattr(submission, "media_metadata", None)
+    if not isinstance(gallery_data, dict) or not isinstance(media_metadata, dict):
+        return None
+
+    for item in gallery_data.get("items") or []:
+        media = media_metadata.get(item.get("media_id")) or {}
+        source = media.get("s") or {}
+        image_url = normalize_image_url(source.get("u") or source.get("gif"))
+        if image_url:
+            return image_url
+
+    return None
+
+
+def get_embedded_thumbnail(submission):
+    for media_attribute in ("secure_media", "media"):
+        media = getattr(submission, media_attribute, None)
+        if not isinstance(media, dict):
+            continue
+        oembed = media.get("oembed") or {}
+        image_url = normalize_image_url(oembed.get("thumbnail_url"))
+        if image_url:
+            return image_url
+
+    return None
+
+
+def is_direct_image_submission(submission, url):
+    if getattr(submission, "post_hint", None) == "image":
+        return True
+
+    path = urlparse(url).path.lower()
+    return any(path.endswith(extension) for extension in IMAGE_FILE_EXTENSIONS)
+
+
 def get_submission_image(submission):
     preview = getattr(submission, "preview", None)
-    if not isinstance(preview, dict):
-        return None
+    if isinstance(preview, dict):
+        images = preview.get("images") or []
+        if images:
+            source = images[0].get("source") or {}
+            image_url = normalize_image_url(source.get("url"))
+            if image_url:
+                return image_url
 
-    images = preview.get("images") or []
-    if not images:
-        return None
+            for resolution in reversed(images[0].get("resolutions") or []):
+                image_url = normalize_image_url(resolution.get("url"))
+                if image_url:
+                    return image_url
 
-    source = images[0].get("source") or {}
-    image_url = source.get("url")
-    return unescape(image_url) if image_url else None
+    gallery_image = get_gallery_image(submission)
+    if gallery_image:
+        return gallery_image
+
+    destination_url = normalize_image_url(getattr(submission, "url", None))
+    if destination_url and is_direct_image_submission(submission, destination_url):
+        return destination_url
+
+    thumbnail = normalize_image_url(getattr(submission, "thumbnail", None))
+    if thumbnail:
+        return thumbnail
+
+    return get_embedded_thumbnail(submission)
 
 
 def get_top_comments(submission, limit=5):
