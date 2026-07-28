@@ -145,12 +145,31 @@ def generate_article_summary(
 
             duplicates_preview = summaries_are_too_similar(generated, description_clean)
             duplicates_title = summaries_are_too_similar(generated, title_clean)
-            if not duplicates_preview and not duplicates_title:
+            sentence_count = len(split_sentences(generated))
+            rejection_reasons = []
+            if sentence_count < 2:
+                rejection_reasons.append("fewer than two sentences")
+            if duplicates_preview or duplicates_title:
+                rejection_reasons.append("too close to source metadata")
+
+            if not rejection_reasons:
                 return generated
 
             if attempt == 0:
                 rejected_summary = generated
-                log.info("Retrying a summary too close to source metadata: %s", url)
+                log.info(
+                    "Retrying Gemini summary for %s (%s; %s characters).",
+                    url,
+                    ", ".join(rejection_reasons),
+                    len(generated),
+                )
+            else:
+                log.warning(
+                    "Gemini summary rejected after two attempts for %s (%s; %s characters).",
+                    url,
+                    ", ".join(rejection_reasons),
+                    len(generated),
+                )
 
     fallback_source = description_clean
     if is_discussion and comments_clean:

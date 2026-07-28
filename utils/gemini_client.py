@@ -153,7 +153,7 @@ class GeminiSummaryClient:
             raise GeminiSummaryError("Article URL is invalid.")
 
         prompt = (
-            f"Résume l'article accessible à cette URL en deux ou trois phrases, "
+            f"Résume l'article accessible à cette URL en deux ou trois phrases complètes, "
             f"avec un maximum de {max_characters} caractères.\n"
             f"URL : {url}\n"
             f"Titre : {title.strip()}\n"
@@ -161,8 +161,9 @@ class GeminiSummaryClient:
         )
         if rejected_summary:
             prompt += (
-                "\nUne première proposition était trop proche de l'extrait. "
-                f"Reformule-la complètement : {rejected_summary.strip()[:1000]}"
+                "\nUne première proposition ne respectait pas toutes les consignes. "
+                "Réécris-la en deux ou trois phrases complètes, sans recopier la source : "
+                f"{rejected_summary.strip()[:1000]}"
             )
         return self._request_summary(
             prompt,
@@ -189,7 +190,7 @@ class GeminiSummaryClient:
         comments_text = "\n".join(f"- {comment}" for comment in cleaned_comments)
         prompt = (
             "Résume cette publication Reddit et les principales réactions en deux ou "
-            f"trois phrases, avec un maximum de {max_characters} caractères. "
+            f"trois phrases complètes, avec un maximum de {max_characters} caractères. "
             "Ne présente pas un avis isolé comme un consensus.\n"
             f"Titre à ne pas recopier : {title.strip()}\n"
             f"Publication : {body.strip()[:4000]}\n"
@@ -197,8 +198,9 @@ class GeminiSummaryClient:
         )
         if rejected_summary:
             prompt += (
-                "\nUne première proposition recopiait trop la publication. "
-                f"Produis une véritable synthèse : {rejected_summary.strip()[:1000]}"
+                "\nUne première proposition ne respectait pas toutes les consignes. "
+                "Réécris-la en deux ou trois phrases complètes et produis une véritable "
+                f"synthèse : {rejected_summary.strip()[:1000]}"
             )
 
         return self._request_summary(
