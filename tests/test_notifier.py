@@ -48,7 +48,7 @@ class NotifierTests(unittest.TestCase):
             {
                 "chat_id": notifier.CHAT_ID,
                 "photo": "https://images.example/article.jpg",
-                "caption": "Résumé avec lien",
+                "caption": f"Résumé avec lien\n\n{notifier.PHOTO_SEPARATOR}",
                 "parse_mode": "HTML",
                 "show_caption_above_media": True,
             },
@@ -79,7 +79,10 @@ class NotifierTests(unittest.TestCase):
         self.assertTrue(post.call_args.args[0].endswith("/sendPhoto"))
         payload = post.call_args.kwargs["data"]
         self.assertEqual(payload["photo"], "https://images.example/article.jpg")
-        self.assertEqual(payload["caption"], "Résumé")
+        self.assertEqual(
+            payload["caption"],
+            f"Résumé\n\n{notifier.PHOTO_SEPARATOR}",
+        )
         self.assertTrue(payload["show_caption_above_media"])
         self.assertNotIn("link_preview_options", payload)
 

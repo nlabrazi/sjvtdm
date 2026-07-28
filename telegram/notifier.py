@@ -12,6 +12,7 @@ from utils.logger import setup_logger
 BOT_TOKEN = TELEGRAM_BOT_TOKEN
 CHAT_ID = TELEGRAM_CHAT_ID
 SESSION = requests.Session()
+PHOTO_SEPARATOR = "──────────"
 
 log = setup_logger("bot_logger", "bot.log")
 
@@ -82,7 +83,7 @@ def build_photo_payload(message: str, image_url: str) -> dict | None:
     return {
         "chat_id": CHAT_ID,
         "photo": candidate,
-        "caption": message,
+        "caption": f"{message}\n\n{PHOTO_SEPARATOR}",
         "parse_mode": "HTML",
         "show_caption_above_media": True,
     }
