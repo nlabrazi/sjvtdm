@@ -1,4 +1,6 @@
 import logging
+from html import unescape
+from urllib.parse import urlparse
 
 import feedparser
 import requests
@@ -11,6 +13,37 @@ log = logging.getLogger("cron_push_logger")
 
 REQUEST_HEADERS = {"User-Agent": HTTP_USER_AGENT}
 SESSION = requests.Session()
+
+
+def is_public_http_url(url):
+    parsed = urlparse((url or "").strip())
+    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
+
+
+def get_entry_image(entry):
+    candidates = []
+
+    candidates.extend(entry.get("media_content") or [])
+    candidates.extend(entry.get("media_thumbnail") or [])
+
+    entry_image = entry.get("image")
+    if isinstance(entry_image, dict):
+        candidates.append(entry_image)
+    elif isinstance(entry_image, str):
+        candidates.append({"url": entry_image})
+
+    for enclosure in entry.get("enclosures") or []:
+        media_type = (enclosure.get("type") or "").lower()
+        if media_type.startswith("image/"):
+            candidates.append(enclosure)
+
+    for candidate in candidates:
+        image_url = candidate.get("url") or candidate.get("href")
+        image_url = unescape(image_url).strip() if image_url else ""
+        if is_public_http_url(image_url):
+            return image_url
+
+    return None
 
 
 def fetch_rss_articles(limit=10):
@@ -48,18 +81,6 @@ def fetch_rss_articles(limit=10):
         log.info("Fetched %s RSS entries from %s", len(entries), source_config["source_label"])
 
         for entry in entries:
-            image = None
-            media_content = entry.get("media_content") or []
-            media_thumbnail = entry.get("media_thumbnail") or []
-            entry_image = entry.get("image")
-
-            if media_content:
-                image = media_content[0].get("url")
-            elif media_thumbnail:
-                image = media_thumbnail[0].get("url")
-            elif isinstance(entry_image, dict):
-                image = entry_image.get("href")
-
             articles.append(
                 {
                     "title": entry.get("title", ""),
@@ -68,7 +89,7 @@ def fetch_rss_articles(limit=10):
                     "source_key": source_config["source_key"],
                     "source_label": source_config["source_label"],
                     "language": source_config["language"],
-                    "image": image,
+                    "image": get_entry_image(entry),
                 }
             )
 

@@ -148,6 +148,38 @@ class RedditFetcherTests(unittest.TestCase):
         self.assertEqual(comments, [])
         warning.assert_called_once()
 
+    def test_get_submission_image_falls_back_to_gallery_metadata(self):
+        submission = SimpleNamespace(
+            preview=None,
+            gallery_data={"items": [{"media_id": "image-1"}]},
+            media_metadata={
+                "image-1": {
+                    "s": {
+                        "u": "https://preview.redd.it/gallery.jpg?width=1080&amp;format=pjpg"
+                    }
+                }
+            },
+        )
+
+        self.assertEqual(
+            reddit_fetcher.get_submission_image(submission),
+            "https://preview.redd.it/gallery.jpg?width=1080&format=pjpg",
+        )
+
+    def test_get_submission_image_falls_back_to_thumbnail(self):
+        submission = SimpleNamespace(
+            preview=None,
+            gallery_data=None,
+            media_metadata=None,
+            url="https://publisher.example/article",
+            thumbnail="https://external-preview.redd.it/article.jpg",
+        )
+
+        self.assertEqual(
+            reddit_fetcher.get_submission_image(submission),
+            "https://external-preview.redd.it/article.jpg",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
