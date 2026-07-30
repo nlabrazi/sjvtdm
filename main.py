@@ -4,9 +4,11 @@ from collections import defaultdict
 from config import (
     GEMINI_API_KEY,
     GEMINI_MODEL,
+    GEMINI_THINKING_LEVEL,
     GEMINI_TIMEOUT_SECONDS,
     MAX_MESSAGES_PER_MINUTE,
     MAX_MESSAGES_PER_SOURCE,
+    SUMMARY_MIN_CHARACTERS,
     SUMMARY_MAX_CHARACTERS,
 )
 from database.db import find_sent_urls, get_db_connection, mark_articles_as_sent, setup_table
@@ -43,6 +45,7 @@ def build_article_message(article, gemini_client=None):
         description=description,
         url=article.get("link", ""),
         language=article.get("language", "english"),
+        min_characters=SUMMARY_MIN_CHARACTERS,
         max_characters=SUMMARY_MAX_CHARACTERS,
         gemini_client=gemini_client,
         is_discussion=article.get("is_self_post", False),
@@ -87,6 +90,7 @@ def send_pending_articles():
     gemini_client = GeminiSummaryClient(
         api_key=GEMINI_API_KEY,
         model=GEMINI_MODEL,
+        thinking_level=GEMINI_THINKING_LEVEL,
         timeout_seconds=GEMINI_TIMEOUT_SECONDS,
     )
     sent_count = 0

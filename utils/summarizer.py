@@ -106,6 +106,7 @@ def generate_article_summary(
     description: str,
     url: str,
     language: str = "english",
+    min_characters: int = 180,
     max_characters: int = 480,
     gemini_client=None,
     is_discussion: bool = False,
@@ -128,6 +129,7 @@ def generate_article_summary(
                         title=title_clean,
                         body=description_clean,
                         comments=comments_clean,
+                        min_characters=min_characters,
                         max_characters=max_characters,
                         rejected_summary=rejected_summary,
                     )
@@ -136,6 +138,7 @@ def generate_article_summary(
                         url=url,
                         title=title_clean,
                         excerpt=description_clean,
+                        min_characters=min_characters,
                         max_characters=max_characters,
                         rejected_summary=rejected_summary,
                     )
@@ -149,6 +152,10 @@ def generate_article_summary(
             rejection_reasons = []
             if sentence_count < 2:
                 rejection_reasons.append("fewer than two sentences")
+            if len(generated) < min_characters:
+                rejection_reasons.append(
+                    f"fewer than {min_characters} characters"
+                )
             if duplicates_preview or duplicates_title:
                 rejection_reasons.append("too close to source metadata")
 
@@ -175,9 +182,21 @@ def generate_article_summary(
     if is_discussion and comments_clean:
         fallback_source = " ".join([description_clean, *comments_clean])
 
-    return generate_summary(
+    fallback = generate_summary(
         title_clean,
         fallback_source,
         max_sentences=3,
         language=language,
     )
+    if len(fallback) < min_characters or summaries_are_too_similar(
+        fallback,
+        title_clean,
+    ):
+        log.warning(
+            "Local summary rejected for %s (%s characters); article will be retried.",
+            url,
+            len(fallback),
+        )
+        return ""
+
+    return fallback

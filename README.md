@@ -101,7 +101,7 @@ Reddit external post ──────→ original article URL ─────�
 Reddit self-post + comments ─→ Gemini text synthesis ─────┤
                                                           ↓
                                     French brief (2–3 sentences,
-                                      480 characters by default)
+                                   180–480 characters by default)
                                                           ↓
                              Telegram photo + summary + article link
 ```
@@ -111,7 +111,8 @@ model or article extraction service is required. The bot verifies that URL
 Context successfully retrieved the page before accepting an article summary.
 If the API key is absent, the quota is exhausted, the page is inaccessible, or
 the generated text duplicates the feed preview, the bot automatically uses its
-local fallback.
+local fallback. A fallback that is too short is not sent; the article remains
+pending so a later run can retry it.
 
 For Reddit self-posts, the bot sends the publication and up to five substantive
 public comments directly to Gemini. For external Reddit posts, it summarizes
@@ -182,7 +183,9 @@ Optional summary settings:
 
 ```dotenv
 GEMINI_MODEL=gemini-2.5-flash-lite
+GEMINI_THINKING_LEVEL=medium
 GEMINI_TIMEOUT_SECONDS=20
+SUMMARY_MIN_CHARACTERS=180
 SUMMARY_MAX_CHARACTERS=480
 ```
 
