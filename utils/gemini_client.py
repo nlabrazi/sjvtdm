@@ -49,12 +49,14 @@ class GeminiSummaryClient:
         self,
         api_key: str,
         model: str = "gemini-2.5-flash-lite",
+        thinking_level: str = "medium",
         timeout_seconds: float = 20,
         http_client=requests,
         endpoint: str = GEMINI_INTERACTIONS_URL,
     ):
         self.api_key = (api_key or "").strip()
         self.model = model
+        self.thinking_level = thinking_level
         self.timeout_seconds = timeout_seconds
         self.http_client = http_client
         self.endpoint = endpoint
@@ -103,6 +105,7 @@ class GeminiSummaryClient:
             "model": self.model,
             "input": prompt,
             "system_instruction": SYSTEM_INSTRUCTION,
+            "generation_config": {"thinking_level": self.thinking_level},
             "store": False,
         }
         if use_url_context:
@@ -144,6 +147,7 @@ class GeminiSummaryClient:
         url: str,
         title: str,
         excerpt: str = "",
+        min_characters: int = 180,
         max_characters: int = 480,
         rejected_summary: str = "",
     ) -> str:
@@ -153,8 +157,11 @@ class GeminiSummaryClient:
             raise GeminiSummaryError("Article URL is invalid.")
 
         prompt = (
-            f"Résume l'article accessible à cette URL en deux ou trois phrases complètes, "
-            f"avec un maximum de {max_characters} caractères.\n"
+            f"Analyse puis résume l'article accessible à cette URL en deux ou trois phrases "
+            f"complètes, entre {min_characters} et {max_characters} caractères. "
+            "La première phrase doit exposer précisément le fait principal. La suivante "
+            "doit apporter le contexte, la conséquence ou l'enjeu le plus important. "
+            "Privilégie les faits concrets et bannis les formulations vagues.\n"
             f"URL : {url}\n"
             f"Titre : {title.strip()}\n"
             f"Extrait à ne pas recopier : {excerpt.strip()[:1000]}"
@@ -176,6 +183,7 @@ class GeminiSummaryClient:
         title: str,
         body: str,
         comments: list[str],
+        min_characters: int = 180,
         max_characters: int = 480,
         rejected_summary: str = "",
     ) -> str:
@@ -189,9 +197,12 @@ class GeminiSummaryClient:
         ]
         comments_text = "\n".join(f"- {comment}" for comment in cleaned_comments)
         prompt = (
-            "Résume cette publication Reddit et les principales réactions en deux ou "
-            f"trois phrases complètes, avec un maximum de {max_characters} caractères. "
-            "Ne présente pas un avis isolé comme un consensus.\n"
+            "Analyse puis résume cette publication Reddit et les principales réactions en "
+            f"deux ou trois phrases complètes, entre {min_characters} et "
+            f"{max_characters} caractères. La première phrase doit exposer précisément "
+            "le sujet principal. La suivante doit synthétiser le contexte ou les réactions "
+            "les plus significatives. Ne présente pas un avis isolé comme un consensus et "
+            "bannis les formulations vagues.\n"
             f"Titre à ne pas recopier : {title.strip()}\n"
             f"Publication : {body.strip()[:4000]}\n"
             f"Commentaires publics :\n{comments_text or '- Aucun commentaire exploitable'}"

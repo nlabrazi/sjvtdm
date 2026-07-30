@@ -61,6 +61,7 @@ class MainTests(unittest.TestCase):
             description="Some description",
             url='https://example.com/post?q="quoted"',
             language="english",
+            min_characters=main.SUMMARY_MIN_CHARACTERS,
             max_characters=main.SUMMARY_MAX_CHARACTERS,
             gemini_client=gemini_client,
             is_discussion=False,

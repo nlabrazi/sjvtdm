@@ -61,7 +61,11 @@ class GeminiSummaryClientTests(unittest.TestCase):
                 }
             )
         )
-        client = GeminiSummaryClient("secret-key", http_client=http_client)
+        client = GeminiSummaryClient(
+            "secret-key",
+            thinking_level="medium",
+            http_client=http_client,
+        )
 
         summary = client.summarize_url(
             "https://example.com/article",
@@ -77,8 +81,13 @@ class GeminiSummaryClientTests(unittest.TestCase):
         self.assertEqual(request["headers"]["x-goog-api-key"], "secret-key")
         self.assertEqual(request["headers"]["Api-Revision"], "2026-05-20")
         self.assertEqual(request["json"]["tools"], [{"type": "url_context"}])
+        self.assertEqual(
+            request["json"]["generation_config"],
+            {"thinking_level": "medium"},
+        )
         self.assertFalse(request["json"]["store"])
         self.assertIn("https://example.com/article", request["json"]["input"])
+        self.assertIn("fait principal", request["json"]["input"])
         self.assertNotIn("secret-key", str(request["json"]))
 
     def test_summarize_url_rejects_missing_key(self):

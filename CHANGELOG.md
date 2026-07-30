@@ -10,6 +10,8 @@
 - suite de tests unitaires versionnée et workflow d’intégration continue
 
 ### Changed
+- activation d'un effort de raisonnement Gemini moyen et validation des résumés entre 180 et 480 caractères
+- conservation des articles en attente lorsque Gemini et le fallback local ne produisent pas un résumé substantiel
 - suivi de l’URL éditoriale originale pour les posts Reddit externes
 - vérification du succès de URL Context avant d’accepter un résumé d’article
 - résumés portés à deux ou trois phrases et 480 caractères par défaut

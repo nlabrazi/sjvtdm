@@ -81,6 +81,7 @@ class ArticleSummaryTests(unittest.TestCase):
             title="Patreon's legacy notification task times out",
             description="Patreon addressed a critical scalability issue.",
             url="https://example.com/patreon",
+            min_characters=80,
             gemini_client=client,
         )
 
@@ -105,6 +106,7 @@ class ArticleSummaryTests(unittest.TestCase):
             title="Notification task",
             description=duplicate,
             url="https://example.com/patreon",
+            min_characters=80,
             gemini_client=client,
         )
 
@@ -124,12 +126,34 @@ class ArticleSummaryTests(unittest.TestCase):
             title="Notification changes",
             description="The notification architecture is changing.",
             url="https://example.com/notifications",
+            min_characters=80,
             gemini_client=client,
         )
 
         self.assertEqual(summary, rewritten)
         self.assertEqual(len(client.calls), 2)
         self.assertEqual(client.calls[1][1]["rejected_summary"], too_short)
+
+    def test_retries_when_two_sentences_contain_too_little_information(self):
+        too_brief = "Une annonce est faite. Elle aura des conséquences."
+        rewritten = (
+            "L'entreprise sépare désormais le calcul des destinataires et l'envoi "
+            "des notifications. Cette architecture doit limiter les blocages lors "
+            "des pics d'activité."
+        )
+        client = FakeGeminiClient([too_brief, rewritten])
+
+        summary = summarizer.generate_article_summary(
+            title="Notification changes",
+            description="The notification architecture is changing.",
+            url="https://example.com/notifications",
+            min_characters=120,
+            gemini_client=client,
+        )
+
+        self.assertEqual(summary, rewritten)
+        self.assertEqual(len(client.calls), 2)
+        self.assertEqual(client.calls[1][1]["rejected_summary"], too_brief)
 
     def test_falls_back_when_both_gemini_summaries_have_one_sentence(self):
         client = FakeGeminiClient(
@@ -147,6 +171,7 @@ class ArticleSummaryTests(unittest.TestCase):
                 title="Notification changes",
                 description="The notification architecture is changing.",
                 url="https://example.com/notifications",
+                min_characters=20,
                 gemini_client=client,
             )
 
@@ -168,6 +193,7 @@ class ArticleSummaryTests(unittest.TestCase):
             title="Final Fantasy is making me happy again",
             description="The author explains how the game helps after a breakup.",
             url="https://www.reddit.com/r/gaming/comments/example",
+            min_characters=80,
             gemini_client=client,
             is_discussion=True,
             comments=["A supportive comment with a personal recommendation."],
@@ -192,6 +218,7 @@ class ArticleSummaryTests(unittest.TestCase):
                 title="Discussion title",
                 description="Original post body.",
                 url="https://www.reddit.com/r/gaming/comments/example",
+                min_characters=20,
                 gemini_client=client,
                 is_discussion=True,
                 comments=["A substantive public comment with useful context."],
@@ -216,6 +243,7 @@ class ArticleSummaryTests(unittest.TestCase):
                 title="Title",
                 description="Description suffisamment longue pour être résumée.",
                 url="https://example.com/article",
+                min_characters=10,
                 gemini_client=client,
             )
 
@@ -233,11 +261,29 @@ class ArticleSummaryTests(unittest.TestCase):
                 title="Title",
                 description="Description",
                 url="https://example.com/article",
+                min_characters=10,
                 gemini_client=client,
             )
 
         self.assertEqual(summary, "Résumé de secours")
         self.assertEqual(client.calls, [])
+
+    def test_rejects_a_local_fallback_reduced_to_a_few_words(self):
+        client = FakeGeminiClient([GeminiSummaryError("article unavailable")])
+
+        with patch(
+            "utils.summarizer.generate_summary",
+            return_value="Titre très bref.",
+        ):
+            summary = summarizer.generate_article_summary(
+                title="Titre très bref",
+                description="Titre très bref",
+                url="https://example.com/article",
+                min_characters=80,
+                gemini_client=client,
+            )
+
+        self.assertEqual(summary, "")
 
 
 class SimilarityTests(unittest.TestCase):
