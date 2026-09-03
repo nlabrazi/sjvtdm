@@ -39,6 +39,21 @@ class NotifierTests(unittest.TestCase):
 
         self.assertEqual(message, "🧠 A useful summary")
 
+    def test_build_message_displays_escaped_source_in_header(self):
+        message = notifier.build_message(
+            "📢",
+            "Un résumé utile.",
+            "https://example.com/article",
+            source_label="Polygon & partners",
+        )
+
+        self.assertEqual(
+            message,
+            "<b>📢 Polygon &amp; partners</b>\n\n"
+            "Un résumé utile.\n\n"
+            '<a href="https://example.com/article">🔗 Lire l\'article complet</a>',
+        )
+
     def test_build_photo_payload_uses_image_and_caption(self):
         self.assertEqual(
             notifier.build_photo_payload(

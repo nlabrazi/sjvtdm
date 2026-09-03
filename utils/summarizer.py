@@ -188,15 +188,13 @@ def generate_article_summary(
         max_sentences=3,
         language=language,
     )
-    if len(fallback) < min_characters or summaries_are_too_similar(
-        fallback,
-        title_clean,
-    ):
+    if len(fallback) < min_characters:
         log.warning(
-            "Local summary rejected for %s (%s characters); article will be retried.",
+            "Local summary for %s is shorter than the %s-character target "
+            "(%s characters); keeping it to avoid dropping the article.",
             url,
+            min_characters,
             len(fallback),
         )
-        return ""
 
     return fallback

@@ -111,8 +111,8 @@ model or article extraction service is required. The bot verifies that URL
 Context successfully retrieved the page before accepting an article summary.
 If the API key is absent, the quota is exhausted, the page is inaccessible, or
 the generated text duplicates the feed preview, the bot automatically uses its
-local fallback. A fallback that is too short is not sent; the article remains
-pending so a later run can retry it.
+local fallback. The minimum length remains a quality target and never causes a
+fetched article to be dropped.
 
 For Reddit self-posts, the bot sends the publication and up to five substantive
 public comments directly to Gemini. For external Reddit posts, it summarizes

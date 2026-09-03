@@ -164,14 +164,25 @@ def send_error_alert(error_msg: str) -> bool:
     return send_to_telegram(alert)
 
 
-def build_message(emoji: str, summary: str, url: str) -> str:
+def build_message(
+    emoji: str,
+    summary: str,
+    url: str,
+    source_label: str = "",
+) -> str:
     summary_clean = summary.strip()
     if not summary_clean:
         return ""
 
-    summary_line = f"{emoji} {summary_clean}" if emoji else summary_clean
+    safe_source_label = escape_html(source_label.strip())
+    if safe_source_label:
+        header = f"<b>{' '.join(part for part in (emoji, safe_source_label) if part)}</b>"
+        message_parts = [header, summary_clean]
+    else:
+        summary_line = f"{emoji} {summary_clean}" if emoji else summary_clean
+        message_parts = [summary_line]
     safe_url = sanitize_url(url)
-    if not safe_url:
-        return summary_line
+    if safe_url:
+        message_parts.append(f'<a href="{safe_url}">🔗 Lire l\'article complet</a>')
 
-    return f"{summary_line}\n\n<a href=\"{safe_url}\">🔗 Lire l'article complet</a>"
+    return "\n\n".join(message_parts)

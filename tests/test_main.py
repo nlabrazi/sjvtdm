@@ -35,6 +35,7 @@ class MainTests(unittest.TestCase):
     def test_build_article_message_uses_gemini_service_and_catalog_emoji(self):
         article = {
             "source_key": "polygon",
+            "source_label": "Polygon",
             "title": "Some title",
             "description": "Some description",
             "language": "english",
@@ -51,7 +52,8 @@ class MainTests(unittest.TestCase):
                 gemini_client=gemini_client,
             )
 
-        self.assertIn("📢 5 &lt; 6 &amp; &quot;quoted&quot;", message)
+        self.assertIn("<b>📢 Polygon</b>", message)
+        self.assertIn("5 &lt; 6 &amp; &quot;quoted&quot;", message)
         self.assertIn(
             'href="https://example.com/post?q=&quot;quoted&quot;"',
             message,
