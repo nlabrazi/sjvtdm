@@ -268,7 +268,7 @@ class ArticleSummaryTests(unittest.TestCase):
         self.assertEqual(summary, "Résumé de secours")
         self.assertEqual(client.calls, [])
 
-    def test_rejects_a_local_fallback_reduced_to_a_few_words(self):
+    def test_keeps_a_short_local_fallback_to_avoid_dropping_the_article(self):
         client = FakeGeminiClient([GeminiSummaryError("article unavailable")])
 
         with patch(
@@ -283,7 +283,7 @@ class ArticleSummaryTests(unittest.TestCase):
                 gemini_client=client,
             )
 
-        self.assertEqual(summary, "")
+        self.assertEqual(summary, "Titre très bref.")
 
 
 class SimilarityTests(unittest.TestCase):

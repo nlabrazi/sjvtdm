@@ -53,7 +53,12 @@ def build_article_message(article, gemini_client=None):
     )
     summary = escape_html(summary_raw)
     emoji = SOURCE_EMOJI_MAP.get(article.get("source_key", ""), "")
-    return build_message(emoji, summary, article.get("link", ""))
+    return build_message(
+        emoji,
+        summary,
+        article.get("link", ""),
+        source_label=article.get("source_label", ""),
+    )
 
 
 def send_article_message(
