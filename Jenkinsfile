@@ -16,14 +16,14 @@ pipeline {
 
         stage('Install') {
             steps {
-                sh 'python -m pip install --upgrade pip'
-                sh 'python -m pip install -r requirements.txt'
+                sh 'python -m venv .venv'
+                sh '.venv/bin/python -m pip install -r requirements.txt'
             }
         }
 
         stage('Unit tests') {
             steps {
-                sh 'python -m unittest discover -s tests -v'
+                sh '.venv/bin/python -m unittest discover -s tests -v'
             }
         }
     }
