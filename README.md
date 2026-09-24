@@ -67,7 +67,7 @@
 
 A Telegram bot that automatically centralizes relevant news and updates from RSS feeds and Reddit into a personal or private Telegram channel.
 
-- 📰 Collects fresh articles from sources like Polygon, Reddit, gHacks, HackerNoon, and Les Numeriques (`sources/*.py`)
+- 📰 Collects fresh articles from sources like Polygon, Reddit, gHacks, HackerNoon, Les Numeriques, and Tom’s Hardware (`sources/*.py`)
 - ✂️ Generates concise French summaries from the complete article URL with Gemini URL Context
 - 💬 Synthesizes Reddit self-posts with up to five substantive public comments
 - 🛟 Falls back to the local extractive summary when Gemini is unavailable
