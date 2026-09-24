@@ -199,11 +199,44 @@ RUN_MODE=bot ./start.sh
 RUN_MODE=clean ./start.sh
 ```
 
-Run the test suite:
+### Tests and coverage
+
+Install the development dependencies and run the suite with branch coverage:
 
 ```bash
-python3 -m unittest discover -s tests -v
+pip install -r requirements-dev.txt
+python -m coverage run -m unittest discover -s tests -v
+python -m coverage report
+python -m coverage html
 ```
+
+Open `htmlcov/index.html` for the per-file report. Coverage excludes tests and
+virtual environments. It is a diagnostic tool: there is no arbitrary percentage
+threshold. Tests focus on preventing duplicate posts, preserving failed sends
+for retry, summary fallback behavior, and database integrity.
+
+The PostgreSQL integration tests require an explicit `TEST_DATABASE_URL` pointing
+to a **dedicated test database**. They never fall back to the application's
+`DATABASE_URL`. The database user must be allowed to create schemas; each test
+creates a unique schema and removes it afterward.
+
+```bash
+TEST_DATABASE_URL=postgresql://test_user:test_password@localhost:5432/sjvtdm_test \
+  python -m coverage run -m unittest discover -s tests -v
+```
+
+Without `TEST_DATABASE_URL`, the PostgreSQL tests are reported as skipped and
+the unit tests still run. An explicitly configured but unreachable database
+fails the suite. Integration tests exercise real SQL for deduplication,
+transaction rollback, retention boundaries and the legacy UTC timestamp migration.
+External services (Gemini, Telegram and Reddit) remain simulated: these tests do
+not measure the factual quality of generated summaries.
+
+GitHub Actions provisions PostgreSQL and runs the complete suite. Jenkins runs
+unit tests by default, plus integration tests when `TEST_DATABASE_URL` is supplied
+for a reachable dedicated database. Both pipelines archive HTML and XML coverage
+reports, including on test failure when coverage data is available. Their coverage
+figures are only comparable when the same tests run.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 

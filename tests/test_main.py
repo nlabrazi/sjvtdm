@@ -207,5 +207,54 @@ class MainTests(unittest.TestCase):
         send.assert_called_once_with("message", image_url="https://example.com/image.png")
 
 
+    @patch("main.time.sleep")
+    def test_failed_send_is_not_marked_and_is_retried_on_next_run(self, sleep):
+        article = {"source_key": "polygon", "link": "https://example.com/retry"}
+        conn = self.FakeConnection()
+        with (
+            patch("main.collect_articles", return_value=[article]),
+            patch("main.get_db_connection", return_value=conn),
+            patch("main.find_sent_urls", return_value=set()),
+            patch("main.GeminiSummaryClient"),
+            patch("main.build_article_message", return_value="message"),
+            patch("main.get_article_image", return_value=""),
+            patch(
+                "main.send_article_message",
+                side_effect=[(False, None), (True, None)],
+            ) as send,
+            patch("main.mark_articles_as_sent") as mark,
+        ):
+            self.assertEqual(main.send_pending_articles(), 0)
+            mark.assert_not_called()
+            self.assertEqual(conn.commit_count, 0)
+
+            self.assertEqual(main.send_pending_articles(), 1)
+            mark.assert_called_once_with([article["link"]], conn=conn)
+            self.assertEqual(conn.commit_count, 1)
+            self.assertEqual(send.call_count, 2)
+
+    @patch("main.time.sleep")
+    def test_same_url_from_two_sources_is_sent_only_once(self, sleep):
+        url = "https://example.com/shared"
+        articles = [
+            {"source_key": "polygon", "link": url},
+            {"source_key": "reddit_gaming", "link": url},
+        ]
+        conn = self.FakeConnection()
+        with (
+            patch("main.collect_articles", return_value=articles),
+            patch("main.get_db_connection", return_value=conn),
+            patch("main.find_sent_urls", return_value=set()),
+            patch("main.GeminiSummaryClient"),
+            patch("main.build_article_message", return_value="message"),
+            patch("main.get_article_image", return_value=""),
+            patch("main.send_article_message", return_value=(True, None)) as send,
+            patch("main.mark_articles_as_sent") as mark,
+        ):
+            self.assertEqual(main.send_pending_articles(), 1)
+        send.assert_called_once()
+        mark.assert_called_once_with([url], conn=conn)
+
+
 if __name__ == "__main__":
     unittest.main()

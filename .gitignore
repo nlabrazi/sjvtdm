@@ -24,3 +24,9 @@ Thumbs.db
 .idea/
 .vscode/
 *.bak
+
+# Test coverage
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/

@@ -17,13 +17,23 @@ pipeline {
         stage('Install') {
             steps {
                 sh 'python -m venv .venv'
-                sh '.venv/bin/python -m pip install -r requirements.txt'
+                sh '.venv/bin/python -m pip install -r requirements-dev.txt'
             }
         }
 
         stage('Unit tests') {
             steps {
-                sh '.venv/bin/python -m unittest discover -s tests -v'
+                sh '.venv/bin/python -m coverage run -m unittest discover -s tests -v'
+            }
+            post {
+                always {
+                    sh '''
+                        .venv/bin/python -m coverage report
+                        .venv/bin/python -m coverage xml
+                        .venv/bin/python -m coverage html
+                    '''
+                    archiveArtifacts artifacts: 'coverage.xml,htmlcov/**', allowEmptyArchive: true
+                }
             }
         }
     }

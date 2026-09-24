@@ -1,0 +1,13 @@
+[run]
+branch = True
+source = .
+omit =
+    tests/*
+    .venv/*
+    venv/*
+    env/*
+
+[report]
+include_namespace_packages = True
+show_missing = True
+skip_empty = True
