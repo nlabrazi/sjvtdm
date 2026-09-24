@@ -14,7 +14,7 @@ from config import (
 from database.db import find_sent_urls, get_db_connection, mark_articles_as_sent, setup_table
 from sources.catalog import SOURCE_EMOJI_MAP, TARGET_SOURCE_KEYS
 from sources.reddit_fetcher import fetch_reddit_posts
-from sources.rss_fetcher import fetch_rss_articles
+from sources.rss_fetcher import fetch_rss_articles, get_article_image
 from telegram.notifier import build_message, escape_html, send_to_telegram_result
 from utils.gemini_client import GeminiSummaryClient
 from utils.logger import setup_logger
@@ -132,7 +132,7 @@ def send_pending_articles():
 
                 send_succeeded, retry_wait = send_article_message(
                     message,
-                    image_url=article.get("image", ""),
+                    image_url=get_article_image(article) or "",
                 )
                 if retry_wait:
                     global_count = 0

@@ -185,5 +185,27 @@ class MainTests(unittest.TestCase):
         mock_sleep.assert_has_calls([call(17), call(1), call(10)])
 
 
+    @patch("main.time.sleep")
+    def test_ghacks_image_is_resolved_only_for_unsent_articles_within_limit(self, sleep):
+        articles = [
+            {"source_key": "ghacks", "link": f"https://www.ghacks.net/{i}/"}
+            for i in range(3)
+        ]
+        with (
+            patch("main.collect_articles", return_value=articles),
+            patch("main.get_db_connection", return_value=self.FakeConnection()),
+            patch("main.find_sent_urls", return_value={articles[0]["link"]}),
+            patch("main.MAX_MESSAGES_PER_SOURCE", 1),
+            patch("main.GeminiSummaryClient"),
+            patch("main.build_article_message", return_value="message"),
+            patch("main.get_article_image", return_value="https://example.com/image.png") as image,
+            patch("main.send_article_message", return_value=(True, None)) as send,
+            patch("main.mark_articles_as_sent"),
+        ):
+            self.assertEqual(main.send_pending_articles(), 1)
+        image.assert_called_once_with(articles[1])
+        send.assert_called_once_with("message", image_url="https://example.com/image.png")
+
+
 if __name__ == "__main__":
     unittest.main()

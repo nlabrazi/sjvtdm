@@ -118,6 +118,9 @@ For Reddit self-posts, the bot sends the publication and up to five substantive
 public comments directly to Gemini. For external Reddit posts, it summarizes
 the linked publisher article instead of the Reddit metadata.
 
+For gHacks articles without an RSS image, the bot reads the article page’s Open Graph
+or Twitter image metadata after deduplication and before sending.
+
 Images are passed to Telegram by public URL, so the VPS does not download or
 upload the media itself. Telegram link previews are disabled to avoid repeating
 the article title and description. If Telegram explicitly rejects an image, the

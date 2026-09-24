@@ -1,6 +1,7 @@
 import logging
 from html import unescape
-from urllib.parse import urlparse
+from html.parser import HTMLParser
+from urllib.parse import urljoin, urlparse
 
 import feedparser
 import requests
@@ -46,6 +47,51 @@ def get_entry_image(entry):
     return None
 
 
+class ArticleImageParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.images = {}
+
+    def handle_starttag(self, tag, attrs):
+        if tag != "meta":
+            return
+        attrs = dict(attrs)
+        key = (attrs.get("property") or attrs.get("name") or "").lower()
+        if key in {"og:image", "twitter:image"}:
+            self.images.setdefault(key, attrs.get("content") or "")
+
+
+def get_article_image(article):
+    """Resolve gHacks page metadata only when an unsent article has no RSS image."""
+    if article.get("image"):
+        return article["image"]
+    url = article.get("link") or ""
+    if (
+        article.get("source_key") != "ghacks"
+        or not is_public_http_url(url)
+        or urlparse(url).hostname not in {"ghacks.net", "www.ghacks.net"}
+    ):
+        return None
+
+    try:
+        response = SESSION.get(url, headers=REQUEST_HEADERS, timeout=HTTP_TIMEOUT_SECONDS)
+        response.raise_for_status()
+    except requests.RequestException as exc:
+        log.warning("Failed to fetch gHacks article image for %s: %s", url, exc)
+        return None
+
+    parser = ArticleImageParser()
+    parser.feed(response.text)
+    for key in ("og:image", "twitter:image"):
+        candidate = parser.images.get(key, "").strip()
+        if candidate:
+            image_url = urljoin(response.url, candidate)
+            if is_public_http_url(image_url):
+                return image_url
+    log.info("No image metadata found for gHacks article %s.", url)
+    return None
+
+
 def fetch_rss_articles(limit=10):
     articles = []
 
@@ -78,7 +124,10 @@ def fetch_rss_articles(limit=10):
                 getattr(feed, "bozo_exception", "unknown error"),
             )
 
-        log.info("Fetched %s RSS entries from %s", len(entries), source_config["source_label"])
+        log.info(
+            "Fetched %s RSS entries from %s (%s available in feed).",
+            len(entries), source_config["source_label"], len(feed.entries),
+        )
 
         for entry in entries:
             articles.append(
