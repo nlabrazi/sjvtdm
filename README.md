@@ -67,7 +67,7 @@
 
 A Telegram bot that automatically centralizes relevant news and updates from RSS feeds and Reddit into a personal or private Telegram channel.
 
-- 📰 Collects fresh articles from sources like Polygon, Reddit, gHacks, HackerNoon, and Les Numeriques (`sources/*.py`)
+- 📰 Collects fresh articles from sources like Polygon, Reddit, gHacks, HackerNoon, Les Numeriques, and Tom’s Hardware (`sources/*.py`)
 - ✂️ Generates concise French summaries from the complete article URL with Gemini URL Context
 - 💬 Synthesizes Reddit self-posts with up to five substantive public comments
 - 🛟 Falls back to the local extractive summary when Gemini is unavailable
@@ -117,6 +117,9 @@ fetched article to be dropped.
 For Reddit self-posts, the bot sends the publication and up to five substantive
 public comments directly to Gemini. For external Reddit posts, it summarizes
 the linked publisher article instead of the Reddit metadata.
+
+For gHacks articles without an RSS image, the bot reads the article page’s Open Graph
+or Twitter image metadata after deduplication and before sending.
 
 Images are passed to Telegram by public URL, so the VPS does not download or
 upload the media itself. Telegram link previews are disabled to avoid repeating
@@ -196,11 +199,44 @@ RUN_MODE=bot ./start.sh
 RUN_MODE=clean ./start.sh
 ```
 
-Run the test suite:
+### Tests and coverage
+
+Install the development dependencies and run the suite with branch coverage:
 
 ```bash
-python3 -m unittest discover -s tests -v
+pip install -r requirements-dev.txt
+python -m coverage run -m unittest discover -s tests -v
+python -m coverage report
+python -m coverage html
 ```
+
+Open `htmlcov/index.html` for the per-file report. Coverage excludes tests and
+virtual environments. It is a diagnostic tool: there is no arbitrary percentage
+threshold. Tests focus on preventing duplicate posts, preserving failed sends
+for retry, summary fallback behavior, and database integrity.
+
+The PostgreSQL integration tests require an explicit `TEST_DATABASE_URL` pointing
+to a **dedicated test database**. They never fall back to the application's
+`DATABASE_URL`. The database user must be allowed to create schemas; each test
+creates a unique schema and removes it afterward.
+
+```bash
+TEST_DATABASE_URL=postgresql://test_user:test_password@localhost:5432/sjvtdm_test \
+  python -m coverage run -m unittest discover -s tests -v
+```
+
+Without `TEST_DATABASE_URL`, the PostgreSQL tests are reported as skipped and
+the unit tests still run. An explicitly configured but unreachable database
+fails the suite. Integration tests exercise real SQL for deduplication,
+transaction rollback, retention boundaries and the legacy UTC timestamp migration.
+External services (Gemini, Telegram and Reddit) remain simulated: these tests do
+not measure the factual quality of generated summaries.
+
+GitHub Actions provisions PostgreSQL and runs the complete suite. Jenkins runs
+unit tests by default, plus integration tests when `TEST_DATABASE_URL` is supplied
+for a reachable dedicated database. Both pipelines archive HTML and XML coverage
+reports, including on test failure when coverage data is available. Their coverage
+figures are only comparable when the same tests run.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 

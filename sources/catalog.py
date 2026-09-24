@@ -27,6 +27,13 @@ RSS_SOURCE_CONFIGS: tuple[dict[str, str], ...] = (
         "language": "french",
         "emoji": "🧪",
     },
+    {
+        "url": "https://www.tomshardware.com/feeds/all",
+        "source_key": "toms_hardware",
+        "source_label": "Tom's Hardware",
+        "language": "english",
+        "emoji": "🖥️",
+    },
 )
 
 REDDIT_SOURCE_CONFIGS: tuple[dict[str, str], ...] = (
