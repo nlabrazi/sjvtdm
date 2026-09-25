@@ -61,6 +61,39 @@ class ArticleImageParser(HTMLParser):
             self.images.setdefault(key, attrs.get("content") or "")
 
 
+GHACKS_PROXY_URL_TEMPLATE = "https://r.jina.ai/{url}"
+PROXY_REQUEST_HEADERS = {
+    "User-Agent": HTTP_USER_AGENT,
+    "X-Return-Format": "html",
+}
+
+
+def fetch_ghacks_page_html(url):
+    try:
+        response = SESSION.get(url, headers=REQUEST_HEADERS, timeout=HTTP_TIMEOUT_SECONDS)
+        response.raise_for_status()
+        return response.text
+    except requests.RequestException as exc:
+        log.warning(
+            "Direct fetch failed for gHacks article %s: %s; trying proxy fallback.",
+            url,
+            exc,
+        )
+
+    try:
+        proxy_url = GHACKS_PROXY_URL_TEMPLATE.format(url=url)
+        response = SESSION.get(
+            proxy_url,
+            headers=PROXY_REQUEST_HEADERS,
+            timeout=HTTP_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        return response.text
+    except requests.RequestException as exc:
+        log.warning("Proxy fetch failed for gHacks article %s: %s", url, exc)
+        return None
+
+
 def get_article_image(article):
     """Resolve gHacks page metadata only when an unsent article has no RSS image."""
     if article.get("image"):
@@ -73,19 +106,16 @@ def get_article_image(article):
     ):
         return None
 
-    try:
-        response = SESSION.get(url, headers=REQUEST_HEADERS, timeout=HTTP_TIMEOUT_SECONDS)
-        response.raise_for_status()
-    except requests.RequestException as exc:
-        log.warning("Failed to fetch gHacks article image for %s: %s", url, exc)
+    html = fetch_ghacks_page_html(url)
+    if not html:
         return None
 
     parser = ArticleImageParser()
-    parser.feed(response.text)
+    parser.feed(html)
     for key in ("og:image", "twitter:image"):
         candidate = parser.images.get(key, "").strip()
         if candidate:
-            image_url = urljoin(response.url, candidate)
+            image_url = urljoin(url, candidate)
             if is_public_http_url(image_url):
                 return image_url
     log.info("No image metadata found for gHacks article %s.", url)
