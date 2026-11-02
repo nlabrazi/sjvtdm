@@ -143,7 +143,7 @@ def generate_article_summary(
                         rejected_summary=rejected_summary,
                     )
             except GeminiSummaryError as exc:
-                log.warning("Gemini summary unavailable for %s: %s", url, exc)
+                log.warning("Gemini summary unavailable: %s", exc)
                 break
 
             duplicates_preview = summaries_are_too_similar(generated, description_clean)

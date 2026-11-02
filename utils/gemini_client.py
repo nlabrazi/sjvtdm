@@ -1,10 +1,13 @@
+import logging
 import re
+import time
 from urllib.parse import urlparse
 
 import requests
 
 
 GEMINI_INTERACTIONS_URL = "https://generativelanguage.googleapis.com/v1beta/interactions"
+log = logging.getLogger("cron_push_logger")
 
 SYSTEM_INSTRUCTION = """
 Tu es le rédacteur d'un fil d'actualités Telegram.
@@ -60,6 +63,14 @@ class GeminiSummaryClient:
         self.timeout_seconds = timeout_seconds
         self.http_client = http_client
         self.endpoint = endpoint
+        self._consecutive_failures = 0
+        self._circuit_open = False
+
+    def _record_failure(self, *, permanent: bool = False) -> None:
+        self._consecutive_failures += 1
+        if permanent or self._consecutive_failures >= 2:
+            self._circuit_open = True
+            log.warning("Gemini circuit opened; remaining articles will use the local fallback.")
 
     @property
     def is_configured(self) -> bool:
@@ -101,6 +112,9 @@ class GeminiSummaryClient:
         *,
         use_url_context: bool,
     ) -> str:
+        if self._circuit_open:
+            raise GeminiSummaryError("Gemini circuit is open for this run.")
+
         request_payload = {
             "model": self.model,
             "input": prompt,
@@ -117,6 +131,23 @@ class GeminiSummaryClient:
             "Api-Revision": "2026-05-20",
         }
 
+        start = time.monotonic()
+        operation = "url_context" if use_url_context else "discussion"
+        # Configuration values are not necessarily safe to include verbatim in logs.
+        safe_model = (
+            self.model
+            if re.fullmatch(r"[a-zA-Z0-9._/-]{1,100}", self.model)
+            else "<invalid>"
+        )
+
+        def log_failure(category: str, **details) -> None:
+            extra = " ".join(f"{key}={value}" for key, value in details.items())
+            log.warning(
+                "Gemini request failed: category=%s %s model=%s operation=%s duration=%.2fs",
+                category, extra, safe_model, operation, time.monotonic() - start,
+            )
+
+        response = None
         try:
             response = self.http_client.post(
                 self.endpoint,
@@ -126,8 +157,52 @@ class GeminiSummaryClient:
             )
             response.raise_for_status()
             response_payload = response.json()
-        except (requests.RequestException, ValueError) as exc:
-            raise GeminiSummaryError("Gemini request failed.") from exc
+            if not isinstance(response_payload, dict):
+                raise ValueError("Unexpected JSON response type")
+        except requests.Timeout as exc:
+            if isinstance(exc, requests.ConnectTimeout):
+                category = "connect_timeout"
+            elif isinstance(exc, requests.ReadTimeout):
+                category = "read_timeout"
+            else:
+                category = "timeout"
+            self._record_failure()
+            log_failure(category)
+            raise GeminiSummaryError(f"Gemini request failed ({category}).") from exc
+        except requests.HTTPError as exc:
+            status = getattr(response, "status_code", None)
+            status = status if isinstance(status, int) and 100 <= status <= 599 else None
+            if status in {401, 403, 404, 429} or (status is not None and status >= 500):
+                self._record_failure(permanent=status in {401, 403, 404, 429})
+            else:
+                self._consecutive_failures = 0
+            retry_after = getattr(response, "headers", {}).get("Retry-After", "")
+            if not (
+                isinstance(retry_after, str)
+                and retry_after.isascii()
+                and retry_after.isdigit()
+                and len(retry_after) <= 8
+            ):
+                retry_after = "unknown"
+            log_failure("http", status=status or "unknown", retry_after=retry_after)
+            raise GeminiSummaryError(f"Gemini request failed (HTTP {status or 'unknown'}).") from exc
+        except ValueError as exc:
+            self._consecutive_failures = 0
+            log_failure("invalid_json")
+            raise GeminiSummaryError("Gemini request failed (invalid JSON response).") from exc
+        except requests.ConnectionError as exc:
+            self._record_failure()
+            log_failure("connection")
+            raise GeminiSummaryError("Gemini request failed (connection).") from exc
+        except requests.RequestException as exc:
+            self._record_failure()
+            log_failure("network")
+            raise GeminiSummaryError("Gemini request failed (network).") from exc
+        self._consecutive_failures = 0
+        log.info(
+            "Gemini request completed: model=%s operation=%s duration=%.2fs",
+            safe_model, operation, time.monotonic() - start,
+        )
 
         if response_payload.get("status") not in {None, "completed"}:
             raise GeminiSummaryError("Gemini interaction did not complete.")
