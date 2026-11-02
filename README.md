@@ -114,6 +114,14 @@ the generated text duplicates the feed preview, the bot automatically uses its
 local fallback. The minimum length remains a quality target and never causes a
 fetched article to be dropped.
 
+Gemini request logs report the operation, model, elapsed time and failure category
+without logging the API key or response body. Two consecutive timeouts, network
+errors or server errors suspend Gemini for the rest of the current run. HTTP 401,
+403, 404 and 429 suspend it immediately; a new cron run tries again. An HTTP
+`Retry-After` value is logged when provided as a number of seconds. Failures
+specific to one article, such as an inaccessible URL, do not open the circuit.
+The local fallback extracts text in the source language and does not translate it.
+
 For Reddit self-posts, the bot sends the publication and up to five substantive
 public comments directly to Gemini. For external Reddit posts, it summarizes
 the linked publisher article instead of the Reddit metadata.
