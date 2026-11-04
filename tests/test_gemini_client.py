@@ -253,8 +253,28 @@ class GeminiSummaryClientTests(unittest.TestCase):
         )
         client = GeminiSummaryClient("secret-key", http_client=http_client)
 
-        with self.assertRaisesRegex(GeminiSummaryError, "could not retrieve"):
+        with self.assertRaisesRegex(GeminiSummaryError, "url_context=paywall"):
             client.summarize_url("https://example.com/article", "Title")
+
+    def test_url_context_failure_distinguishes_missing_results_and_statuses(self):
+        cases = [
+            ([], "no_result"),
+            ([{"type": "url_context_result", "result": [{}]}], "missing_status"),
+            ([{"type": "url_context_result", "result": [{"status": "error"}]}], "error"),
+            ([{"type": "url_context_result", "result": [{"status": "unsafe"}]}], "unsafe"),
+            ([{"type": "url_context_result", "result": [{"status": "secret-key"}]}], "other"),
+        ]
+        for steps, reason in cases:
+            with self.subTest(reason=reason):
+                client = GeminiSummaryClient(
+                    "secret-key",
+                    http_client=FakeHttpClient(FakeResponse({"status": "completed", "steps": steps})),
+                )
+                with self.assertRaises(GeminiSummaryError) as raised:
+                    client.summarize_url("https://example.com/article?token=private", "Title")
+                self.assertIn(f"url_context={reason}", str(raised.exception))
+                self.assertNotIn("secret-key", str(raised.exception))
+                self.assertNotIn("private", str(raised.exception))
 
     def test_summarize_url_rejects_failed_interaction(self):
         http_client = FakeHttpClient(FakeResponse({"status": "failed", "steps": []}))
