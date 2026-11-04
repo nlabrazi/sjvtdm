@@ -105,6 +105,30 @@ class GeminiSummaryClient:
 
         return "success" in statuses
 
+    @staticmethod
+    def _url_context_failure_reason(payload: dict) -> str:
+        """Describe retrieval metadata without logging URLs or response contents."""
+        result_steps = [
+            step for step in payload.get("steps") or []
+            if isinstance(step, dict) and step.get("type") == "url_context_result"
+        ]
+        if not result_steps:
+            return "no_result"
+
+        statuses = set()
+        for step in result_steps:
+            result = step.get("result")
+            items = result if isinstance(result, list) else [result]
+            values = [item.get("status") for item in items if isinstance(item, dict)]
+            values.append(step.get("status"))
+            for value in values:
+                if value in ("error", "paywall", "unsafe"):
+                    statuses.add(value)
+                elif value is not None:
+                    statuses.add("other")
+
+        return ",".join(sorted(statuses)) if statuses else "missing_status"
+
     def _request_summary(
         self,
         prompt: str,
@@ -207,7 +231,10 @@ class GeminiSummaryClient:
         if response_payload.get("status") not in {None, "completed"}:
             raise GeminiSummaryError("Gemini interaction did not complete.")
         if use_url_context and not self._url_context_succeeded(response_payload):
-            raise GeminiSummaryError("Gemini could not retrieve the article URL.")
+            reason = self._url_context_failure_reason(response_payload)
+            raise GeminiSummaryError(
+                f"Gemini could not retrieve the article URL (url_context={reason})."
+            )
 
         summary = clean_generated_summary(
             self._extract_output_text(response_payload),
