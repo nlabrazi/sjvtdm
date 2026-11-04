@@ -16,6 +16,7 @@ from sources.catalog import SOURCE_EMOJI_MAP, TARGET_SOURCE_KEYS
 from sources.reddit_fetcher import fetch_reddit_posts
 from sources.rss_fetcher import fetch_rss_articles, get_article_image
 from telegram.notifier import build_message, escape_html, send_to_telegram_result
+from utils.article_fetcher import fetch_article_text
 from utils.gemini_client import GeminiSummaryClient
 from utils.logger import setup_logger
 from utils.summarizer import generate_article_summary
@@ -97,6 +98,7 @@ def send_pending_articles():
         model=GEMINI_MODEL,
         thinking_level=GEMINI_THINKING_LEVEL,
         timeout_seconds=GEMINI_TIMEOUT_SECONDS,
+        article_fetcher=fetch_article_text,
     )
     sent_count = 0
     global_count = 0
