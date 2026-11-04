@@ -144,6 +144,113 @@ class GeminiSummaryClientTests(unittest.TestCase):
                 client.summarize_url("https://example.com/article", "title")
         self.assertEqual(len(http.calls), 3)
 
+    @staticmethod
+    def _url_context_error_response():
+        return FakeResponse({
+            "status": "completed",
+            "steps": [{"type": "url_context_result", "result": [{"status": "error"}]}],
+        })
+
+    @staticmethod
+    def _text_response(text="Résumé français généré à partir de l'extrait."):
+        return FakeResponse({
+            "status": "completed",
+            "steps": [{"type": "model_output", "content": [{"type": "text", "text": text}]}],
+        })
+
+    def test_url_context_failure_falls_back_to_rss_excerpt(self):
+        http = FakeHttpClient(None)
+        http.post = Mock(side_effect=[self._url_context_error_response(), self._text_response()])
+        client = GeminiSummaryClient("key", http_client=http)
+        excerpt = "The company announced a new product with several notable features today."
+
+        summary = client.summarize_url("https://example.com/a", "Title", excerpt)
+
+        self.assertIn("Résumé français", summary)
+        self.assertEqual(http.post.call_count, 2)
+        self.assertEqual(http.post.call_args_list[0].kwargs["json"]["tools"], [{"type": "url_context"}])
+        fallback_request = http.post.call_args_list[1].kwargs["json"]
+        self.assertNotIn("tools", fallback_request)
+        self.assertIn(excerpt, fallback_request["input"])
+
+    def test_short_excerpt_does_not_trigger_excerpt_fallback(self):
+        http = FakeHttpClient(self._url_context_error_response())
+        client = GeminiSummaryClient("key", http_client=http)
+        with self.assertRaisesRegex(GeminiSummaryError, "could not retrieve"):
+            client.summarize_url("https://example.com/a", "Title", "Too short")
+        self.assertEqual(len(http.calls), 1)
+
+    def test_failing_source_skips_url_context_without_affecting_other_sources(self):
+        excerpt = "The company announced a new product with several notable features today."
+        http = FakeHttpClient(None)
+        http.post = Mock(side_effect=[
+            self._url_context_error_response(), self._text_response(),
+            self._url_context_error_response(), self._text_response(),
+            self._text_response(),  # third article of the source: excerpt only
+            self._url_context_error_response(), self._text_response(),  # other source
+        ])
+        client = GeminiSummaryClient("key", http_client=http)
+
+        for path in ("a", "b", "c"):
+            client.summarize_url(f"https://www.hackernoon.com/{path}", "Title", excerpt)
+        self.assertEqual(http.post.call_count, 5)
+        self.assertNotIn("tools", http.post.call_args_list[4].kwargs["json"])
+
+        client.summarize_url("https://example.org/x", "Title", excerpt)
+        self.assertEqual(http.post.call_count, 7)
+        self.assertEqual(
+            http.post.call_args_list[5].kwargs["json"]["tools"], [{"type": "url_context"}]
+        )
+        self.assertFalse(client._circuit_open)
+
+    def test_url_context_success_resets_source_failure_count(self):
+        excerpt = "The company announced a new product with several notable features today."
+        success = FakeResponse({
+            "status": "completed",
+            "steps": [
+                {"type": "url_context_result", "result": [{"status": "success"}]},
+                {"type": "model_output", "content": [{"type": "text", "text": "Résumé."}]},
+            ],
+        })
+        http = FakeHttpClient(None)
+        http.post = Mock(side_effect=[
+            self._url_context_error_response(), self._text_response(), success,
+            self._url_context_error_response(), self._text_response(),
+            success,
+        ])
+        client = GeminiSummaryClient("key", http_client=http)
+        for path in ("a", "b", "c", "d"):
+            client.summarize_url(f"https://example.com/{path}", "Title", excerpt)
+        self.assertEqual(http.post.call_count, 6)
+        self.assertEqual(client._url_context_failures["example.com"], 0)
+
+    def test_local_article_text_is_summarized_without_url_context(self):
+        http = FakeHttpClient(self._text_response("Résumé fondé sur le texte local."))
+        fetcher = Mock(return_value="Texte complet de l'article. " * 30)
+        client = GeminiSummaryClient("key", http_client=http, article_fetcher=fetcher)
+
+        summary = client.summarize_url("https://example.com/a", "Title", "excerpt")
+
+        self.assertIn("texte local", summary)
+        fetcher.assert_called_once_with("https://example.com/a")
+        self.assertEqual(len(http.calls), 1)
+        request = http.calls[0][1]["json"]
+        self.assertNotIn("tools", request)
+        self.assertIn("Texte complet de l'article.", request["input"])
+
+    def test_local_fetch_failure_falls_back_to_url_context_then_excerpt(self):
+        excerpt = "The company announced a new product with several notable features today."
+        http = FakeHttpClient(None)
+        http.post = Mock(side_effect=[self._url_context_error_response(), self._text_response()])
+        client = GeminiSummaryClient(
+            "key", http_client=http, article_fetcher=Mock(return_value="")
+        )
+        client.summarize_url("https://example.com/a", "Title", excerpt)
+        self.assertEqual(http.post.call_count, 2)
+        self.assertEqual(
+            http.post.call_args_list[0].kwargs["json"]["tools"], [{"type": "url_context"}]
+        )
+
     def test_summarize_url_uses_url_context_without_storing_interaction(self):
         http_client = FakeHttpClient(
             FakeResponse(

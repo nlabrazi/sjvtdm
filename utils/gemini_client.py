@@ -23,6 +23,21 @@ class GeminiSummaryError(RuntimeError):
     """Raised when Gemini cannot produce a usable article summary."""
 
 
+class GeminiUrlContextError(GeminiSummaryError):
+    """Raised when Gemini answered but could not read the article page itself."""
+
+
+# Consecutive URL Context failures tolerated for one source before skipping it for the run.
+URL_CONTEXT_HOST_FAILURE_LIMIT = 2
+# Below this size an RSS excerpt is too thin to summarize without inventing facts.
+MIN_EXCERPT_CHARACTERS = 60
+
+
+def source_key(url: str) -> str:
+    host = (urlparse((url or "").strip()).hostname or "").lower()
+    return host[4:] if host.startswith("www.") else host
+
+
 def is_valid_article_url(url: str) -> bool:
     parsed = urlparse((url or "").strip())
     return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
@@ -51,12 +66,16 @@ class GeminiSummaryClient:
     def __init__(
         self,
         api_key: str,
-        model: str = "gemini-2.5-flash-lite",
-        thinking_level: str = "medium",
-        timeout_seconds: float = 20,
+        model: str = "gemini-3.5-flash-lite",
+        thinking_level: str = "minimal",
+        timeout_seconds: float = 45,
         http_client=requests,
         endpoint: str = GEMINI_INTERACTIONS_URL,
+        article_fetcher=None,
     ):
+        # Callable url -> article text ("" when unavailable). When set, pages are
+        # downloaded locally so Gemini does not depend on Google's URL fetcher.
+        self.article_fetcher = article_fetcher
         self.api_key = (api_key or "").strip()
         self.model = model
         self.thinking_level = thinking_level
@@ -65,6 +84,7 @@ class GeminiSummaryClient:
         self.endpoint = endpoint
         self._consecutive_failures = 0
         self._circuit_open = False
+        self._url_context_failures: dict[str, int] = {}
 
     def _record_failure(self, *, permanent: bool = False) -> None:
         self._consecutive_failures += 1
@@ -135,6 +155,7 @@ class GeminiSummaryClient:
         max_characters: int,
         *,
         use_url_context: bool,
+        operation: str = "",
     ) -> str:
         if self._circuit_open:
             raise GeminiSummaryError("Gemini circuit is open for this run.")
@@ -156,7 +177,7 @@ class GeminiSummaryClient:
         }
 
         start = time.monotonic()
-        operation = "url_context" if use_url_context else "discussion"
+        operation = operation or ("url_context" if use_url_context else "discussion")
         # Configuration values are not necessarily safe to include verbatim in logs.
         safe_model = (
             self.model
@@ -232,7 +253,7 @@ class GeminiSummaryClient:
             raise GeminiSummaryError("Gemini interaction did not complete.")
         if use_url_context and not self._url_context_succeeded(response_payload):
             reason = self._url_context_failure_reason(response_payload)
-            raise GeminiSummaryError(
+            raise GeminiUrlContextError(
                 f"Gemini could not retrieve the article URL (url_context={reason})."
             )
 
@@ -258,26 +279,85 @@ class GeminiSummaryClient:
         if not is_valid_article_url(url):
             raise GeminiSummaryError("Article URL is invalid.")
 
-        prompt = (
-            f"Analyse puis résume l'article accessible à cette URL en deux ou trois phrases "
-            f"complètes, entre {min_characters} et {max_characters} caractères. "
-            "La première phrase doit exposer précisément le fait principal. La suivante "
-            "doit apporter le contexte, la conséquence ou l'enjeu le plus important. "
-            "Privilégie les faits concrets et bannis les formulations vagues.\n"
-            f"URL : {url}\n"
-            f"Titre : {title.strip()}\n"
-            f"Extrait à ne pas recopier : {excerpt.strip()[:1000]}"
+        source = source_key(url)
+        has_usable_excerpt = len(excerpt.strip()) >= MIN_EXCERPT_CHARACTERS
+        # Without a usable excerpt, the article page is the only possible source.
+        skip_url_context = has_usable_excerpt and (
+            self._url_context_failures.get(source, 0) >= URL_CONTEXT_HOST_FAILURE_LIMIT
         )
+        retry_note = ""
         if rejected_summary:
-            prompt += (
+            retry_note = (
                 "\nUne première proposition ne respectait pas toutes les consignes. "
                 "Réécris-la en deux ou trois phrases complètes, sans recopier la source : "
                 f"{rejected_summary.strip()[:1000]}"
             )
+
+        article_text = self.article_fetcher(url) if self.article_fetcher else ""
+        if article_text:
+            prompt = (
+                "Analyse puis résume l'article ci-dessous en deux ou trois phrases "
+                f"complètes, entre {min_characters} et {max_characters} caractères. "
+                "La première phrase doit exposer précisément le fait principal. La suivante "
+                "doit apporter le contexte, la conséquence ou l'enjeu le plus important. "
+                "Privilégie les faits concrets et bannis les formulations vagues.\n"
+                f"Titre à ne pas recopier : {title.strip()}\n"
+                f"Texte de l'article :\n{article_text}"
+            ) + retry_note
+            return self._request_summary(
+                prompt,
+                max_characters=max_characters,
+                use_url_context=False,
+                operation="article_text",
+            )
+
+        if not skip_url_context:
+            prompt = (
+                f"Analyse puis résume l'article accessible à cette URL en deux ou trois phrases "
+                f"complètes, entre {min_characters} et {max_characters} caractères. "
+                "La première phrase doit exposer précisément le fait principal. La suivante "
+                "doit apporter le contexte, la conséquence ou l'enjeu le plus important. "
+                "Privilégie les faits concrets et bannis les formulations vagues.\n"
+                f"URL : {url}\n"
+                f"Titre : {title.strip()}\n"
+                f"Extrait à ne pas recopier : {excerpt.strip()[:1000]}"
+            ) + retry_note
+            try:
+                summary = self._request_summary(
+                    prompt,
+                    max_characters=max_characters,
+                    use_url_context=True,
+                )
+            except GeminiUrlContextError as exc:
+                failures = self._url_context_failures.get(source, 0) + 1
+                self._url_context_failures[source] = failures
+                if failures == URL_CONTEXT_HOST_FAILURE_LIMIT:
+                    log.warning(
+                        "URL Context failed %s times in a row for source %s; "
+                        "using title and RSS excerpt for its remaining articles.",
+                        failures, source or "<unknown>",
+                    )
+                if not has_usable_excerpt:
+                    raise exc
+                log.info("Falling back to title and RSS excerpt for source %s.", source)
+            else:
+                self._url_context_failures[source] = 0
+                return summary
+
+        prompt = (
+            "L'article complet n'est pas accessible. Rédige en français, uniquement à partir "
+            f"du titre et de l'extrait ci-dessous, un résumé en deux ou trois phrases "
+            f"complètes, entre {min_characters} et {max_characters} caractères si "
+            "l'extrait le permet. Traduis fidèlement les informations de l'extrait, n'ajoute "
+            "aucun fait absent du titre ou de l'extrait et ne recopie pas le titre.\n"
+            f"Titre : {title.strip()}\n"
+            f"Extrait : {excerpt.strip()[:2000]}"
+        ) + retry_note
         return self._request_summary(
             prompt,
             max_characters=max_characters,
-            use_url_context=True,
+            use_url_context=False,
+            operation="rss_excerpt",
         )
 
     def summarize_discussion(
