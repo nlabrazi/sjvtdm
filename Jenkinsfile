@@ -3,7 +3,7 @@
 pipeline {
     agent {
         docker {
-            image 'python:3.11'
+            image 'python:3.15.2'
         }
     }
 
